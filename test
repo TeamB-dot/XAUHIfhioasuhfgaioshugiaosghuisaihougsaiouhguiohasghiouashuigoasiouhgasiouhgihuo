@@ -408,6 +408,30 @@ function checkATMsBeforeExit()
     return false
 end
 
+function checkAndEquipCashOutItem()
+    local Backpack = player:FindFirstChild("Backpack")
+    if not Backpack then
+        warn("Backpack nicht gefunden.")
+        return
+    end
+
+    local found = false
+
+    for _, item in ipairs(Backpack:GetChildren()) do
+        if item:IsA("Tool") and item:FindFirstChild("OnCashOut") then
+            player.Character.Humanoid:EquipTool(item)
+            debug("Money Bag gefunden und ausgerüstet: " .. item.Name)
+            found = true
+            break
+        end
+    end
+
+    if not found then
+        warn("No Money Bag Found WARNING: You won't be able to transfer 100% of your cash to your main account. Please read the tutorial at the beginning of the Auto Farm section.")
+    end
+end
+
+
 function destroyATMs(count)
     local byte = identifierStorage:GetAttribute("RemoteEvent_OnMellee")
     if not byte then debug("MeleeByte fehlt!") return end
@@ -482,6 +506,7 @@ wait(0.2)
 teleportCarCloseToPlayer(car)
 wait(0.2)
 sitInCar(car)
+checkAndEquipCashOutItem()
 wait(0.5)
 teleportCarToCoordinates(car, Vector3.new(-404.33, 44.61, -204.47))
 wait(0.5)
