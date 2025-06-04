@@ -1,0 +1,264 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "BlackAir Auto Farm",
+   LoadingTitle = "BlackAir Auto Farm",
+   LoadingSubtitle = "by BlackAir Team",
+   Theme = "Default",
+
+   ConfigurationSaving = {
+      Enabled = false,
+      FolderName = "BlackAir",
+      FileName = "sigma"
+   },
+
+   Discord = {
+      Enabled = false,
+      Invite = "noinvitelink",
+      RememberJoins = true
+   },
+
+   KeySystem = false
+})
+local player = game.Players.LocalPlayer
+
+-- Funktion, um das Auto des Spielers zu finden
+function findPlayerCar()
+    for _, vehicle in pairs(workspace.Vehicles:GetChildren()) do
+        -- Fahrzeuge mit dem Namen "Orange" überspringen
+        if vehicle.Name == "Orange" then
+            continue
+        end
+
+        local infoFolder = vehicle:FindFirstChild("InfoFolder")
+        if infoFolder and infoFolder:FindFirstChild("Owner") then
+            local owner = infoFolder.Owner
+            local ownerName = tostring(owner.Value)
+
+            -- Überprüfen, ob der Besitzer der Spieler ist
+            if string.lower(ownerName) == string.lower(player.Name) then
+                print("[BlackAir]: Car Found For Player: " .. vehicle.Name)
+                return vehicle
+            end
+        end
+    end
+    return nil -- Wenn kein Fahrzeug gefunden wurde
+end
+
+-- Funktion, um das Fahrzeug zu entsperren
+function unlockVehicle(vehicle)
+    local args = {
+        [1] = vehicle,
+        [2] = false -- false bedeutet, dass das Fahrzeug entsperrt wird
+    }
+
+    -- Fahrzeug entsperren
+    game:GetService("ReplicatedStorage"):WaitForChild("Client"):WaitForChild("Communication"):WaitForChild("LockVehicle"):InvokeServer(unpack(args))
+    print("[BlackAir]: Car Is Unlocked")
+end
+
+-- Funktion, um den Spieler ins Auto zu setzen
+function sitInCar(car)
+    local rs = game:GetService("ReplicatedStorage")
+    local identifierStorage = rs:WaitForChild("BridgeNet2"):WaitForChild("identifierStorage")
+    local realByte = identifierStorage:GetAttribute("RemoteEvent_OnSitVehicleSeat")
+
+    if not realByte then
+        warn("[BlackAir]: No Value Found Rejoin!")
+        return
+    end
+
+    local args = {
+        [1] = {
+            [1] = {
+                ["KevArgs"] = {
+                    [1] = car,
+                    [2] = car:FindFirstChild("Seats"):FindFirstChild("Seat1")
+                }
+            },
+            [2] = realByte -- ← echter Wert, dynamh
+        }
+    }
+
+    rs:WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent"):FireServer(unpack(args))
+    print("[BlackAir]: Player Is now in Car with valid byte:", realByte)
+end
+
+function teleportCarToCoordinates(car, coordinates)
+    -- Anchorn alle Teile
+    for _, part in pairs(car:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Anchored = true
+        end
+    end
+
+    wait(0.1)
+
+    -- Schritt 1: Hoch teleportieren
+    local offset = Vector3.new(0, 300, 0)
+    local upVector = car:GetModelCFrame().Position + offset
+    local upCFrame = CFrame.new(upVector)
+    car:PivotTo(upCFrame)
+    wait(0.3)
+
+    -- Schritt 2: Horizontal
+    local flatVector = Vector3.new(coordinates.X, upVector.Y, coordinates.Z)
+    car:PivotTo(CFrame.new(flatVector))
+    wait(0.3)
+
+    -- Schritt 3: Runter
+    car:PivotTo(CFrame.new(coordinates))
+    wait(0.3)
+
+    -- Unanchorn
+    for _, part in pairs(car:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Anchored = false
+        end
+    end
+
+    print("[BlackAir]: Whole car pivot-teleported cleanly")
+end
+
+-- Funktion, um den Spieler aus dem Auto aussteigen zu lassen
+function exitCar()
+    local rs = game:GetService("ReplicatedStorage")
+    local identifierStorage = rs:WaitForChild("BridgeNet2"):WaitForChild("identifierStorage")
+    local exitValue = identifierStorage:GetAttribute("RemoteEvent_VehicleInteraction")
+
+    if not exitValue then
+        warn("[BlackAir]: No Value Found Rejoin!")
+        return
+    end
+
+    local args = {
+        [1] = {
+            [1] = 6,
+            [2] = exitValue
+        }
+    }
+    rs:WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent"):FireServer(unpack(args))
+    print("[BlackAir]: Player has exited the Car")
+end
+
+function teleportCarCloseToPlayer(car, player)
+    local character = player.Character
+    if not character then
+        warn("[BlackAir]: Player character not found!")
+        return
+    end
+
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then
+        warn("[BlackAir]: No HumanoidRootPart found!")
+        return
+    end
+
+    -- Position vor dem Spieler berechnen
+    local frontOffset = rootPart.CFrame.LookVector * 5 -- 5 Studs vor dem Spieler
+    local targetPosition = rootPart.Position + frontOffset
+
+    -- Auto erstmal anchorn
+    for _, part in pairs(car:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Anchored = true
+        end
+    end
+
+    -- Schnell Teleportieren
+    car:PivotTo(CFrame.new(targetPosition))
+
+    -- Kleines Delay
+    wait(0.1)
+
+    -- Unanchorn
+    for _, part in pairs(car:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Anchored = false
+        end
+    end
+
+    print("[BlackAir]: Car teleported quickly in front of player")
+end
+
+function teleportAndDriveCar(destination)
+    local car = findPlayerCar()
+
+    if car then
+        print("[BlackAir]: Car Found!")
+
+        unlockVehicle(car)
+        wait(0.5)
+        -- Schnell Auto vor den Spieler teleportieren (ohne reinzuglitchen!)
+        teleportCarCloseToPlayer(car, player)
+
+        wait(0.2)
+
+        -- Spieler ins Auto setzen
+        sitInCar(car)
+
+        wait(0.5)
+
+        -- Danach teleportieren ans Ziel
+        teleportCarToCoordinates(car, destination)
+
+        wait(0.5)
+
+        -- Spieler aussteigen lassen
+        exitCar()
+    else
+        Rayfield:Notify({
+            Title = "BlackAir Error!",
+            Content = "Car not found or is not nearby!",
+            Duration = 5,
+            Image = 4483362458
+        })        
+        print("[BlackAir]: No Car Found For Player")
+        print("-------------------------------------")
+    end
+end
+
+local backpack = {
+    ["BackPack Store"] = Vector3.new(-106.42, 44.21, -760.41)
+}
+
+
+local Tab = Window:CreateTab("Settings", 4483362458)
+
+local Paragraph = Tab:CreateParagraph({
+   Title = "How to Use Auto Farm",
+   Content = "If you want to transfer all your money to your main account, please follow the steps below:"
+})
+
+local Paragraph = Tab:CreateParagraph({
+   Title = "How to Get and Use the Money Bag",
+   Content = "Go to the store | Press Button *Get Money Bag* | and look for the black bag. Once you have it, place it in your hotbar (any slot is fine). Do **not** put it in your inventory only in the hotbar!"
+})
+
+local Button = Tab:CreateButton({
+   Name = "Get Money Bag",
+    Callback = function()
+        local location = backpack["BackPack Store"]
+        if location then
+            teleportAndDriveCar(location)  -- oder nur teleport(location), je nach Funktion
+            print("[BlackAir]: teleporting to: BackPack Store")
+            print("-------------------------------------")
+        else
+            print("[BlackAir]: BackPack Store location not found!")
+            print("-------------------------------------")
+        end
+    end,
+})
+
+local Paragraph = Tab:CreateParagraph({
+   Title = "Start Auto Farm",
+   Content = "You don’t need to equip the money bag manually it's auto equipped for you. You can now farm AFK. When you're done farming, join the server with your main account, drop the bag, and your main can pick it up and cash out."
+})
+
+
+local Button = Tab:CreateButton({
+   Name = "Start",
+   Callback = function()
+loadstring(game:HttpGet('https://raw.githubusercontent.com/TeamB-dot/XAUHIfhioasuhfgaioshugiaosghuisaihougsaiouhguiohasghiouashuigoasiouhgasiouhgihuo/refs/heads/main/loader'))()
+   end,
+})
