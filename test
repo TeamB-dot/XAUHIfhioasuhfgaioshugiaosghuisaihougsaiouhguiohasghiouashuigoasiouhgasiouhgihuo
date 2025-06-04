@@ -131,7 +131,7 @@ local label = Instance.new("TextLabel")
 label.Size = UDim2.new(1, -20, 1, -20)
 label.Position = UDim2.new(0, 10, 0, 10)
 label.BackgroundTransparency = 1
-label.Text = "BlackAir Egg Farm" --  Name geändert
+label.Text = "BlackAir Auto Farm" --  Name geändert
 label.TextColor3 = Color3.fromRGB(255, 255, 255)
 label.TextSize = 28
 label.Font = Enum.Font.GothamBlack
@@ -395,9 +395,12 @@ function checkATMsBeforeExit()
     if totalATM > 0 and brokenCount == totalATM then
         print("🟡 Alle ATMs sind bereits zerstört (All broke)")
         -- NEU: Erst zu Safe-Spot teleportieren
+        wait(0.8)
+        sitInCar(car)
+        -- NEU: Erst zu Safe-Spot teleportieren
         local safePos = Vector3.new(-18.68, -224.36, -234.48)
         teleportCarToCoordinates(car, safePos)
-        wait(1.5)
+        wait(2)
         Teleport()
         return true
     end
@@ -503,11 +506,12 @@ destroyATMs(atmCount)
 wait(0.8)
 collectCash()
 debug("🟢 FERTIG!")
-
+wait(0.8)
+sitInCar(car)
 -- NEU: Erst zu Safe-Spot teleportieren
 local safePos = Vector3.new(-18.68, -224.36, -234.48)
 teleportCarToCoordinates(car, safePos)
-wait(1.5)
+wait(2)
 
 Teleport()
 end)
