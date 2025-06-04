@@ -1,0 +1,502 @@
+local url = 'https://raw.githubusercontent.com/MrEye12/BlackAir/refs/heads/main/LoadSystem%20Auto%20farm'
+local success, response = pcall(function()
+    return game:HttpGet(url)
+end)
+
+if success and response then
+    if syn and syn.queue_on_teleport then
+        syn.queue_on_teleport("loadstring(game:HttpGet('"..url.."'))()")
+    elseif queue_on_teleport then
+        queue_on_teleport("loadstring(game:HttpGet('"..url.."'))()")
+    else
+        dbg("queue_on_teleport | Your Executor Dont Support Auto Farm System !!!!!.")
+    end
+else
+    dbg("Error to load code.")
+end
+
+Time = 1 -- seconds
+repeat wait() until game:IsLoaded()
+wait(Time)
+local PlaceID = game.PlaceId
+local AllIDs = {}
+local foundAnything = ""
+local actualHour = os.date("!*t").hour
+local Deleted = false
+function TPReturner()
+   local Site;
+   if foundAnything == "" then
+       Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
+   else
+       Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
+   end
+   local ID = ""
+   if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
+       foundAnything = Site.nextPageCursor
+   end
+   local num = 0;
+   for i,v in pairs(Site.data) do
+       local Possible = true
+       ID = tostring(v.id)
+       if tonumber(v.maxPlayers) > tonumber(v.playing) then
+           for _,Existing in pairs(AllIDs) do
+               if num ~= 0 then
+                   if ID == tostring(Existing) then
+                       Possible = false
+                   end
+               else
+                   if tonumber(actualHour) ~= tonumber(Existing) then
+                       local delFile = pcall(function()
+                           delfile("NotSameServers_BLACKAIR.json")
+                           AllIDs = {}
+                           table.insert(AllIDs, actualHour)
+                       end)
+                   end
+               end
+               num = num + 1
+           end
+           if Possible == true then
+               table.insert(AllIDs, ID)
+               wait()
+               pcall(function()
+                   writefile("NotSameServers_BLACKAIR.json", game:GetService('HttpService'):JSONEncode(AllIDs))
+                   wait()
+                   game:GetService("TeleportService"):TeleportToPlaceInstance(PlaceID, ID, game.Players.LocalPlayer)
+               end)
+               wait(4)
+           end
+       end
+   end
+end
+
+function Teleport()
+   while wait() do
+       pcall(function()
+           TPReturner()
+           if foundAnything ~= "" then
+               TPReturner()
+           end
+       end)
+   end
+end
+
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local player = game:GetService("Players").LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Main Gui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "WatermarkGui"
+screenGui.IgnoreGuiInset = true
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- Scaling
+local uiScale = Instance.new("UIScale", screenGui)
+local function adjustScale()
+	local size = workspace.CurrentCamera.ViewportSize
+	uiScale.Scale = size.X < 1000 and 0.75 or 1
+end
+adjustScale()
+RunService.Heartbeat:Connect(adjustScale)
+
+-- Watermark Frame
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 450, 0, 60)
+frame.Position = UDim2.new(0.5, -225, 0, 90) --  Jetzt tiefer, nicht mehr in Healthbar
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+frame.BackgroundTransparency = 0.2
+frame.BorderSizePixel = 0
+frame.ClipsDescendants = true
+frame.Parent = screenGui
+
+
+-- Corner
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0.15, 0)
+corner.Parent = frame
+
+-- Gradient Background
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 15, 15)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
+}
+gradient.Rotation = 90
+gradient.Parent = frame
+
+-- Watermark Text
+local label = Instance.new("TextLabel")
+label.Size = UDim2.new(1, -20, 1, -20)
+label.Position = UDim2.new(0, 10, 0, 10)
+label.BackgroundTransparency = 1
+label.Text = "BlackAir Egg Farm" --  Name geändert
+label.TextColor3 = Color3.fromRGB(255, 255, 255)
+label.TextSize = 28
+label.Font = Enum.Font.GothamBlack
+label.TextStrokeTransparency = 0.65
+label.TextScaled = true
+label.Parent = frame
+
+-- FPS Label
+local fpsLabel = Instance.new("TextLabel")
+fpsLabel.Size = UDim2.new(1, -20, 0, 18)
+fpsLabel.Position = UDim2.new(0, 10, 1, -22)
+fpsLabel.BackgroundTransparency = 1
+fpsLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+fpsLabel.TextSize = 14
+fpsLabel.Font = Enum.Font.Gotham
+fpsLabel.TextXAlignment = Enum.TextXAlignment.Right
+fpsLabel.Text = "FPS: ..."
+fpsLabel.Parent = frame
+
+-- Glow
+local glow = Instance.new("ImageLabel")
+glow.Name = "Glow"
+glow.Size = UDim2.new(1, 8, 1, 8)
+glow.Position = UDim2.new(0, -4, 0, -4)
+glow.BackgroundTransparency = 1
+glow.Image = "rbxassetid://5028857084"
+glow.ImageColor3 = Color3.fromRGB(0, 200, 255)
+glow.ImageTransparency = 0.85
+glow.ZIndex = frame.ZIndex - 1
+glow.Parent = frame
+
+-- Particle "Smoke" system
+local particleFrame = Instance.new("Frame")
+particleFrame.Size = UDim2.new(1, 0, 1, 0)
+particleFrame.BackgroundTransparency = 1
+particleFrame.ClipsDescendants = true
+particleFrame.Parent = frame
+
+local function createParticle()
+	local p = Instance.new("Frame")
+	p.Size = UDim2.new(0, math.random(6, 12), 0, math.random(6, 12))
+	p.Position = UDim2.new(math.random(), 0, 1, 0)
+	p.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	p.BackgroundTransparency = 0.85
+	p.ZIndex = 5
+	p.Parent = particleFrame
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(1, 0)
+	corner.Parent = p
+
+	local targetPos = UDim2.new(p.Position.X.Scale, 0, -0.2, 0)
+	local t = TweenService:Create(p, TweenInfo.new(math.random(3, 6), Enum.EasingStyle.Linear), {Position = targetPos})
+	t:Play()
+	t.Completed:Connect(function() p:Destroy() end)
+end
+
+task.spawn(function()
+	while true do
+		createParticle()
+		wait(0.2)
+	end
+end)
+
+-- Load sound
+local sound = Instance.new("Sound")
+sound.SoundId = "rbxassetid://17582299860"
+sound.Volume = 1
+sound.Parent = screenGui
+sound:Play()
+
+-- Watermark Animation
+local function show()
+	label.TextTransparency = 1
+	frame.Visible = true
+	glow.ImageTransparency = 1
+
+	-- Ändere das hier:
+    local slide = TweenService:Create(frame, TweenInfo.new(0.8, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, -225, 0, 100)})
+	local fade = TweenService:Create(label, TweenInfo.new(1, Enum.EasingStyle.Quad), {TextTransparency = 0})
+	local glowIn = TweenService:Create(glow, TweenInfo.new(1), {ImageTransparency = 0.85})
+
+	slide:Play()
+	fade:Play()
+	glowIn:Play()
+
+	fade.Completed:Wait()
+end
+
+
+-- Update FPS
+RunService.RenderStepped:Connect(function()
+	local fps = math.floor(1 / RunService.RenderStepped:Wait())
+	fpsLabel.Text = "FPS: " .. fps
+end)
+
+show()
+if _G.BlackAirAutoFarmed then return end
+_G.BlackAirAutoFarmed = true
+
+repeat task.wait() until game:IsLoaded()
+
+local success, err = pcall(function()
+--===[ SETUP ]===--
+    local Players = game:GetService("Players")
+    local player = Players.LocalPlayer
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local camera = workspace.CurrentCamera
+local BridgeNet = ReplicatedStorage:WaitForChild("BridgeNet2")
+local identifierStorage = BridgeNet:WaitForChild("identifierStorage")
+
+function debug(msg)
+    print("[DEBUG]: " .. tostring(msg))
+end
+
+--===[ KAMERA DIREKT NACH UNTEN AM START ]===--
+task.spawn(function()
+    repeat wait() until player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    local root = player.Character.HumanoidRootPart
+    camera.CameraType = Enum.CameraType.Scriptable
+    camera.CFrame = CFrame.new(
+        root.Position + Vector3.new(0, 35, 0),
+        root.Position
+    )
+end)
+
+--===[ VEHICLE SYSTEM (wie gehabt) ]===--
+--===[ CAR SYSTEM ]===--
+function findPlayerCar()
+    for _, vehicle in pairs(workspace.Vehicles:GetChildren()) do
+        if vehicle.Name == "Orange" then continue end
+        local info = vehicle:FindFirstChild("InfoFolder")
+        if info and info:FindFirstChild("Owner") and tostring(info.Owner.Value):lower() == player.Name:lower() then
+            debug("Car gefunden: " .. vehicle.Name)
+            return vehicle
+        end
+    end
+    debug("Kein Car gefunden")
+    return nil
+end
+
+function unlockVehicle(car)
+    ReplicatedStorage.Client.Communication.LockVehicle:InvokeServer(car, false)
+    debug("Car unlocked")
+end
+
+function sitInCar(car)
+    local seat = car:FindFirstChild("Seats") and car.Seats:FindFirstChild("Seat1")
+    if not seat then debug("Seat nicht gefunden!") return end
+
+    local byte = identifierStorage:GetAttribute("RemoteEvent_OnSitVehicleSeat")
+    if not byte then debug("SitByte fehlt!") return end
+
+    local args = {
+        {
+            {
+                KevArgs = { car, seat }
+            },
+            byte
+        }
+    }
+
+    BridgeNet.dataRemoteEvent:FireServer(unpack(args))
+    debug("In Car gesetzt (Event gefeuert)")
+end
+
+function teleportCarToCoordinates(car, pos)
+    for _, part in pairs(car:GetDescendants()) do
+        if part:IsA("BasePart") then part.Anchored = true end
+    end
+
+    car:PivotTo(CFrame.new(pos + Vector3.new(0, 300, 0)))
+    wait(0.3)
+    car:PivotTo(CFrame.new(Vector3.new(pos.X, pos.Y + 300, pos.Z)))
+    wait(0.3)
+    car:PivotTo(CFrame.new(pos))
+    wait(0.3)
+
+    for _, part in pairs(car:GetDescendants()) do
+        if part:IsA("BasePart") then part.Anchored = false end
+    end
+
+    debug("Car teleportiert nach Ziel")
+end
+
+function teleportCarCloseToPlayer(car)
+    local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not root then debug("Kein HRP gefunden!") return end
+
+    local target = root.Position + root.CFrame.LookVector * 5
+    for _, part in pairs(car:GetDescendants()) do if part:IsA("BasePart") then part.Anchored = true end end
+    car:PivotTo(CFrame.new(target))
+    wait(0.1)
+    for _, part in pairs(car:GetDescendants()) do if part:IsA("BasePart") then part.Anchored = false end end
+    debug("Car vor Spieler teleportiert")
+end
+
+function exitCar()
+    local exitByte = identifierStorage:GetAttribute("RemoteEvent_VehicleInteraction")
+    if not exitByte then
+        debug("ExitByte fehlt! Kann nicht aussteigen.")
+        return
+    end
+
+    local args = {
+        {
+            {
+                KevArgs = { [1] = 6 }
+            },
+            exitByte
+        }
+    }
+
+    debug("Versuche Exit aus Fahrzeug ...")
+    BridgeNet.dataRemoteEvent:FireServer(unpack(args))
+
+    task.delay(2, function()
+        local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if root then
+            root.CFrame = CFrame.new(-382.76, 45.39, -234.59)
+            debug("Spieler zur Rob-Position teleportiert (nach Exit)")
+        end
+    end)
+end
+
+--===[ ATM RENAMING & ROBBING - FASTER ]===--
+function renameATMs()
+    local atmFolder = workspace.Map.Shop_Rob.InkasseBank
+    local count = 0
+    for i, model in ipairs(atmFolder:GetChildren()) do
+        if model:IsA("Model") and model.Name:sub(1,3) == "ATM" and model:FindFirstChild("Main") then
+            model.Name = "ATM" .. tostring(count + 1)
+            count += 1
+            debug("ATM umbenannt: " .. model.Name)
+        end
+    end
+    return count
+end
+
+--===[ NEUE FUNKTION: ATM-Zustand prüfen vor Exit ]===--
+function checkATMsBeforeExit()
+    local atmFolder = workspace.Map.Shop_Rob.InkasseBank
+    local brokenCount = 0
+    local totalATM = 0
+
+    for _, model in ipairs(atmFolder:GetChildren()) do
+        if model:IsA("Model") and model.Name:find("ATM") and model:FindFirstChild("Main") then
+            totalATM += 1
+            if model:GetAttribute("Destroyed") == true then
+                brokenCount += 1
+                debug(model.Name .. " = Destroyed")
+            else
+                debug(model.Name .. " = Intakt")
+            end
+        end
+    end
+
+    if totalATM > 0 and brokenCount == totalATM then
+        print("🟡 Alle ATMs sind bereits zerstört (All broke)")
+        return true
+    end
+
+    return false
+end
+
+function destroyATMs(count)
+    local byte = identifierStorage:GetAttribute("RemoteEvent_OnMellee")
+    if not byte then debug("MeleeByte fehlt!") return end
+
+    for i = 1, count do
+        local atm = workspace.Map.Shop_Rob.InkasseBank:FindFirstChild("ATM" .. tostring(i))
+        if atm and atm:FindFirstChild("Main") then
+            local args = {
+                {
+                    {
+                        KevArgs = {
+                            {
+                                {
+                                    HitType = 3,
+                                    Model = atm,
+                                    Hit = atm.Main
+                                }
+                            },
+                            3
+                        }
+                    },
+                    byte
+                }
+            }
+            BridgeNet.dataRemoteEvent:FireServer(unpack(args))
+            debug("ATM zerstört: ATM" .. tostring(i))
+            wait(0.5)
+        else
+            debug("ATM" .. tostring(i) .. " nicht gefunden für Zerstörung")
+        end
+    end
+end
+
+--===[ ULTRA-FAST CASH COLLECT SYSTEM ]===--
+function collectCash()
+    local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not root then debug("Kein HRP!") return end
+
+    camera.CameraType = Enum.CameraType.Scriptable
+    camera.CFrame = CFrame.new(root.Position + Vector3.new(0, 35, 0), root.Position)
+
+    local collected = 0
+    for _, mesh in ipairs(workspace.Ignore:GetDescendants()) do
+        if mesh:IsA("MeshPart") and (mesh.Position - root.Position).Magnitude <= 45 then
+            local prompt = mesh:FindFirstChildOfClass("ProximityPrompt")
+            if prompt then
+                prompt.HoldDuration = 0
+
+                -- Cash an Spieler-Teleportieren + Ankern
+                mesh.Anchored = true
+                mesh.CFrame = CFrame.new(root.Position - Vector3.new(0, 2, 0))
+
+                -- Brutaler Prompt-Spam
+                for _ = 1, 200 do
+                    fireproximityprompt(prompt, 0)
+                end
+                collected += 1
+            end
+        end
+    end
+
+    camera.CameraType = Enum.CameraType.Custom
+    camera.CameraSubject = player.Character:FindFirstChild("Humanoid")
+
+    debug("Collect fertig! Cash gesammelt: " .. collected)
+end
+
+--===[ ABLAUF START ]===--
+local car = findPlayerCar()
+if not car then return end
+
+unlockVehicle(car)
+wait(0.2)
+teleportCarCloseToPlayer(car)
+wait(0.2)
+sitInCar(car)
+wait(0.5)
+teleportCarToCoordinates(car, Vector3.new(-404.33, 44.61, -204.47))
+wait(0.5)
+
+if checkATMsBeforeExit() then
+    return
+end
+
+exitCar()
+wait(1.2)
+
+-- Spieler zur ATM-Bank teleportieren
+player.Character:WaitForChild("HumanoidRootPart").CFrame = CFrame.new(-382.76, 45.39, -234.59)
+debug("Spieler zur Rob-Zone teleportiert")
+
+-- ATM Rename + Rob
+local atmCount = renameATMs()
+wait(0.5)
+destroyATMs(atmCount)
+
+-- Cash Collect
+wait(0.8)
+collectCash()
+debug("🟢 FERTIG!")
+    task.wait(2)
+Teleport()
+end)
