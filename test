@@ -1,4 +1,4 @@
-local url = 'https://raw.githubusercontent.com/TeamB-dot/XAUHIfhioasuhfgaioshugiaosghuisaihougsaiouhguiohasghiouashuigoasiouhgasiouhgihuo/refs/heads/main/loader'
+local url = 'https://raw.githubusercontent.com/MrEye12/BlackAir/refs/heads/main/LoadSystem%20Auto%20farm'
 local success, response = pcall(function()
     return game:HttpGet(url)
 end)
@@ -371,6 +371,9 @@ function renameATMs()
     return count
 end
 
+local car = findPlayerCar()
+if not car then return end
+
 --===[ NEUE FUNKTION: ATM-Zustand prüfen vor Exit ]===--
 function checkATMsBeforeExit()
     local atmFolder = workspace.Map.Shop_Rob.InkasseBank
@@ -391,6 +394,11 @@ function checkATMsBeforeExit()
 
     if totalATM > 0 and brokenCount == totalATM then
         print("🟡 Alle ATMs sind bereits zerstört (All broke)")
+        -- NEU: Erst zu Safe-Spot teleportieren
+        local safePos = Vector3.new(-18.68, -224.36, -234.48)
+        teleportCarToCoordinates(car, safePos)
+        wait(1.5)
+        Teleport()
         return true
     end
 
@@ -465,8 +473,6 @@ function collectCash()
 end
 
 --===[ ABLAUF START ]===--
-local car = findPlayerCar()
-if not car then return end
 
 unlockVehicle(car)
 wait(0.2)
@@ -497,6 +503,11 @@ destroyATMs(atmCount)
 wait(0.8)
 collectCash()
 debug("🟢 FERTIG!")
-    task.wait(2)
+
+-- NEU: Erst zu Safe-Spot teleportieren
+local safePos = Vector3.new(-18.68, -224.36, -234.48)
+teleportCarToCoordinates(car, safePos)
+wait(1.5)
+
 Teleport()
 end)
