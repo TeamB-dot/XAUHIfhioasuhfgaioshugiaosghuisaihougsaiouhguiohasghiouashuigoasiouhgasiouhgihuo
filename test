@@ -1,4 +1,4 @@
-local url = 'https://raw.githubusercontent.com/MrEye12/BlackAir/refs/heads/main/LoadSystem%20Auto%20farm'
+local url = 'https://raw.githubusercontent.com/TeamB-dot/XAUHIfhioasuhfgaioshugiaosghuisaihougsaiouhguiohasghiouashuigoasiouhgasiouhgihuo/refs/heads/main/loader'
 local success, response = pcall(function()
     return game:HttpGet(url)
 end)
