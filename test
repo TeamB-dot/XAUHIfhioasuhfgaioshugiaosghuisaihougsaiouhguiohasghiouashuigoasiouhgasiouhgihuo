@@ -265,11 +265,11 @@ function findPlayerCar()
         if vehicle.Name == "Orange" then continue end
         local info = vehicle:FindFirstChild("InfoFolder")
         if info and info:FindFirstChild("Owner") and tostring(info.Owner.Value):lower() == player.Name:lower() then
-            debug("Car gefunden: " .. vehicle.Name)
+            debug("Sigma car : " .. vehicle.Name)
             return vehicle
         end
     end
-    debug("Kein Car gefunden")
+    debug("car not found???!?!")
     return nil
 end
 
@@ -280,10 +280,10 @@ end
 
 function sitInCar(car)
     local seat = car:FindFirstChild("Seats") and car.Seats:FindFirstChild("Seat1")
-    if not seat then debug("Seat nicht gefunden!") return end
+    if not seat then debug("Seat not found!") return end
 
     local byte = identifierStorage:GetAttribute("RemoteEvent_OnSitVehicleSeat")
-    if not byte then debug("SitByte fehlt!") return end
+    if not byte then debug("SitByte error!") return end
 
     local args = {
         {
@@ -295,7 +295,7 @@ function sitInCar(car)
     }
 
     BridgeNet.dataRemoteEvent:FireServer(unpack(args))
-    debug("In Car gesetzt (Event gefeuert)")
+    debug("Player In Car")
 end
 
 function teleportCarToCoordinates(car, pos)
@@ -314,25 +314,23 @@ function teleportCarToCoordinates(car, pos)
         if part:IsA("BasePart") then part.Anchored = false end
     end
 
-    debug("Car teleportiert nach Ziel")
+    debug("Car TP to POS")
 end
 
 function teleportCarCloseToPlayer(car)
     local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    if not root then debug("Kein HRP gefunden!") return end
+    if not root then debug("no HRP found!") return end
 
     local target = root.Position + root.CFrame.LookVector * 5
     for _, part in pairs(car:GetDescendants()) do if part:IsA("BasePart") then part.Anchored = true end end
     car:PivotTo(CFrame.new(target))
     wait(0.1)
     for _, part in pairs(car:GetDescendants()) do if part:IsA("BasePart") then part.Anchored = false end end
-    debug("Car vor Spieler teleportiert")
 end
 
 function exitCar()
     local exitByte = identifierStorage:GetAttribute("RemoteEvent_VehicleInteraction")
     if not exitByte then
-        debug("ExitByte fehlt! Kann nicht aussteigen.")
         return
     end
 
@@ -345,14 +343,12 @@ function exitCar()
         }
     }
 
-    debug("Versuche Exit aus Fahrzeug ...")
     BridgeNet.dataRemoteEvent:FireServer(unpack(args))
 
     task.delay(2, function()
         local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
         if root then
             root.CFrame = CFrame.new(-382.76, 45.39, -234.59)
-            debug("Spieler zur Rob-Position teleportiert (nach Exit)")
         end
     end)
 end
@@ -365,7 +361,7 @@ function renameATMs()
         if model:IsA("Model") and model.Name:sub(1,3) == "ATM" and model:FindFirstChild("Main") then
             model.Name = "ATM" .. tostring(count + 1)
             count += 1
-            debug("ATM umbenannt: " .. model.Name)
+            debug("ATM Rename: " .. model.Name)
         end
     end
     return count
@@ -393,7 +389,7 @@ function checkATMsBeforeExit()
     end
 
     if totalATM > 0 and brokenCount == totalATM then
-        print("🟡 Alle ATMs sind bereits zerstört (All broke)")
+        print("All ATMs are destroy")
         -- NEU: Erst zu Safe-Spot teleportieren
         wait(0.8)
         sitInCar(car)
@@ -411,7 +407,6 @@ end
 function checkAndEquipCashOutItem()
     local Backpack = player:FindFirstChild("Backpack")
     if not Backpack then
-        warn("Backpack nicht gefunden.")
         return
     end
 
@@ -419,9 +414,24 @@ function checkAndEquipCashOutItem()
 
     for _, item in ipairs(Backpack:GetChildren()) do
         if item:IsA("Tool") and item:FindFirstChild("OnCashOut") then
+            -- Tool ausrüsten
             player.Character.Humanoid:EquipTool(item)
-            debug("Money Bag gefunden und ausgerüstet: " .. item.Name)
+            debug("Money Bag Found :" .. item.Name)
             found = true
+            -- Kurze Wartezeit für korrektes Ausrüsten
+            task.wait(0.5)
+            -- RemoteEvent oder RemoteFunction ausführen
+            local remote = item:FindFirstChild("OnCashOut")
+            if remote and remote:IsA("RemoteEvent") then
+                remote:FireServer()
+            elseif remote and remote:IsA("RemoteFunction") then
+                pcall(function()
+                    remote:InvokeServer()
+                end)
+            else
+            -- rip
+            end
+            item:Destroy()
             break
         end
     end
@@ -434,7 +444,7 @@ end
 
 function destroyATMs(count)
     local byte = identifierStorage:GetAttribute("RemoteEvent_OnMellee")
-    if not byte then debug("MeleeByte fehlt!") return end
+    if not byte then debug("MeleeByte Error ( Rejoin )!") return end
 
     for i = 1, count do
         local atm = workspace.Map.Shop_Rob.InkasseBank:FindFirstChild("ATM" .. tostring(i))
@@ -457,18 +467,17 @@ function destroyATMs(count)
                 }
             }
             BridgeNet.dataRemoteEvent:FireServer(unpack(args))
-            debug("ATM zerstört: ATM" .. tostring(i))
+            debug("ATM : destroy ATM" .. tostring(i))
             wait(0.5)
         else
-            debug("ATM" .. tostring(i) .. " nicht gefunden für Zerstörung")
+            debug("ATM" .. tostring(i) .. " not Found")
         end
     end
 end
-
 --===[ ULTRA-FAST CASH COLLECT SYSTEM ]===--
 function collectCash()
     local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    if not root then debug("Kein HRP!") return end
+    if not root then debug("no HRP!") return end
 
     camera.CameraType = Enum.CameraType.Scriptable
     camera.CFrame = CFrame.new(root.Position + Vector3.new(0, 35, 0), root.Position)
@@ -496,7 +505,7 @@ function collectCash()
     camera.CameraType = Enum.CameraType.Custom
     camera.CameraSubject = player.Character:FindFirstChild("Humanoid")
 
-    debug("Collect fertig! Cash gesammelt: " .. collected)
+    debug("Collect Done! Cash Collect: " .. collected)
 end
 
 --===[ ABLAUF START ]===--
@@ -520,7 +529,6 @@ wait(1.2)
 
 -- Spieler zur ATM-Bank teleportieren
 player.Character:WaitForChild("HumanoidRootPart").CFrame = CFrame.new(-382.76, 45.39, -234.59)
-debug("Spieler zur Rob-Zone teleportiert")
 
 -- ATM Rename + Rob
 local atmCount = renameATMs()
@@ -530,7 +538,7 @@ destroyATMs(atmCount)
 -- Cash Collect
 wait(0.8)
 collectCash()
-debug("🟢 FERTIG!")
+debug("done!")
 wait(0.8)
 sitInCar(car)
 -- NEU: Erst zu Safe-Spot teleportieren
