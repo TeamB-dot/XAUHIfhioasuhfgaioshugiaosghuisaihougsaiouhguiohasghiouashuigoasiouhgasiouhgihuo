@@ -413,16 +413,19 @@ function checkAndEquipCashOutItem()
     local found = false
 
     for _, item in ipairs(Backpack:GetChildren()) do
-        if item:IsA("Tool") and item:FindFirstChild("OnCashOut") then
-            -- Tool ausrüsten
-            player.Character.Humanoid:EquipTool(item)
-            debug("Money Bag Found: " .. item.Name)
-            found = true
-            -- Kurze Wartezeit für korrektes Ausrüsten
-            task.wait(0.5)
-            -- Tool löschen, aber KEIN Remote ausführen
-            item:Destroy()
-            break
+        if item:IsA("Tool") then
+            local remote = item:FindFirstChild("OnCashOut")
+            if remote and (remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction")) then
+                -- Tool ausrüsten
+                player.Character.Humanoid:EquipTool(item)
+                debug("Money Bag Found: " .. item.Name)
+                found = true
+                -- Kurze Wartezeit für korrektes Ausrüsten
+                task.wait(0.5)
+                -- Remote löschen
+                remote:Destroy()
+                break
+            end
         end
     end
 
@@ -430,7 +433,6 @@ function checkAndEquipCashOutItem()
         warn("No Money Bag Found WARNING: You won't be able to transfer 100% of your cash to your main account. Please read the tutorial at the beginning of the Auto Farm section.")
     end
 end
-
 
 function destroyATMs(count)
     local byte = identifierStorage:GetAttribute("RemoteEvent_OnMellee")
