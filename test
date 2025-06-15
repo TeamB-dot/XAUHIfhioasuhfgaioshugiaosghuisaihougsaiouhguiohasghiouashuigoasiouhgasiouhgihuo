@@ -416,21 +416,11 @@ function checkAndEquipCashOutItem()
         if item:IsA("Tool") and item:FindFirstChild("OnCashOut") then
             -- Tool ausrüsten
             player.Character.Humanoid:EquipTool(item)
-            debug("Money Bag Found :" .. item.Name)
+            debug("Money Bag Found: " .. item.Name)
             found = true
             -- Kurze Wartezeit für korrektes Ausrüsten
             task.wait(0.5)
-            -- RemoteEvent oder RemoteFunction ausführen
-            local remote = item:FindFirstChild("OnCashOut")
-            if remote and remote:IsA("RemoteEvent") then
-                remote:FireServer()
-            elseif remote and remote:IsA("RemoteFunction") then
-                pcall(function()
-                    remote:InvokeServer()
-                end)
-            else
-            -- rip
-            end
+            -- Tool löschen, aber KEIN Remote ausführen
             item:Destroy()
             break
         end
