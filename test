@@ -399,19 +399,22 @@ local function formatNumber(num)
 end
 
 -- Webhook Funktion
-local function sendToDiscord(amount)
+local function sendToDiscord(amount, reachedMax)
     local username = player.Name
     local timeNow = os.date("%d.%m.%Y %H:%M:%S") -- Deutsche Zeit
     local formattedMoney = formatNumber(amount) .. " $"
 
+    local title = reachedMax and "🚨 1.000.000 erreicht!" or "💰 Money Bot Farm :"
+    local desc = "**Bot:** " .. username .. "\n" ..
+                 "**Money:** " .. formattedMoney .. "\n" ..
+                 "**German Time:** " .. timeNow
+
     local data = {
         ["username"] = "Robbery Logger",
         ["embeds"] = {{
-            ["title"] = "💰 Money Bot Farm :",
-            ["description"] = "**Bot:** " .. username .. "\n" ..
-                              "**Money:** " .. formattedMoney .. "\n" ..
-                              "**German Time:** " .. timeNow,
-            ["color"] = 65280
+            ["title"] = title,
+            ["description"] = desc,
+            ["color"] = reachedMax and 16711680 or 65280 -- Rot wenn max erreicht
         }}
     }
 
@@ -440,8 +443,12 @@ local function sendToDiscord(amount)
     end
 end
 
+_G.StopFarm = false -- globale Variable
+
 --===[ FUNKTION MIT ERWEITERUNG ]===--
 function checkAndEquipCashOutItem()
+    if _G.StopFarm then return end -- Wenn gestoppt, nichts mehr machen
+
     local Backpack = player:FindFirstChild("Backpack")
     if not Backpack then return end
 
@@ -461,6 +468,16 @@ function checkAndEquipCashOutItem()
                 if dirtyMoney then
                     debug("DirtyMoney erkannt: " .. tostring(dirtyMoney))
                     sendToDiscord(dirtyMoney)
+
+                    -- Prüfen, ob >= 1 Mio
+                    if dirtyMoney >= 1000000 then
+                        _G.StopFarm = true -- STOP signal setzen
+                        sendToDiscord(dirtyMoney, true) -- Extra Nachricht
+                        
+                        task.delay(2, function()
+                            player:Kick("🚨 Bot hat 1.000.000 $ erreicht ✅")
+                        end)
+                    end
                 else
                     debug("Kein DirtyMoney Attribut gefunden")
                 end
@@ -470,6 +487,23 @@ function checkAndEquipCashOutItem()
         end
     end
 end
+
+--===[ SERVERHOP FIX ]===--
+function Teleport()
+    while wait() do
+        if _G.StopFarm then
+            warn("⛔ Serverhop gestoppt, Limit erreicht!")
+            break
+        end
+        pcall(function()
+            TPReturner()
+            if foundAnything ~= "" then
+                TPReturner()
+            end
+        end)
+    end
+end
+
 
 function destroyATMs(count)
     local byte = identifierStorage:GetAttribute("RemoteEvent_OnMellee")
