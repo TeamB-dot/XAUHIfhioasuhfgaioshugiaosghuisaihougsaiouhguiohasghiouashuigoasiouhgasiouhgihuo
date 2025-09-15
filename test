@@ -407,7 +407,7 @@ local function sendToDiscord(amount)
     local data = {
         ["username"] = "Robbery Logger",
         ["embeds"] = {{
-            ["title"] = "💰 Money From Bot :",
+            ["title"] = "💰 Money Bot Farm :",
             ["description"] = "**Bot:** " .. username .. "\n" ..
                               "**Money:** " .. formattedMoney .. "\n" ..
                               "**German Time:** " .. timeNow,
