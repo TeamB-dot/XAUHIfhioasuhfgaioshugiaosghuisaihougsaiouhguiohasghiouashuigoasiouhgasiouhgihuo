@@ -383,6 +383,64 @@ function checkATMsBeforeExit()
     return false
 end
 
+local webhookUrl = "https://discord.com/api/webhooks/1417219625577615501/MeN7r39hMSpALWRndNHim3RD6gSqLaMRlWZkI3S3uh4HJyDc_ZJfIYpcOPMV5ypm0-e5"
+local HttpService = game:GetService("HttpService")
+local player = game:GetService("Players").LocalPlayer
+
+-- Tausender-Trennzeichen Funktion
+local function formatNumber(num)
+    local formatted = tostring(num)
+    local k
+    while true do
+        formatted, k = formatted:gsub("^(-?%d+)(%d%d%d)", '%1,%2')
+        if k == 0 then break end
+    end
+    return formatted
+end
+
+-- Webhook Funktion
+local function sendToDiscord(amount)
+    local username = player.Name
+    local timeNow = os.date("%d.%m.%Y %H:%M:%S") -- Deutsche Zeit
+    local formattedMoney = formatNumber(amount) .. " $"
+
+    local data = {
+        ["username"] = "Robbery Logger",
+        ["embeds"] = {{
+            ["title"] = "💰 Geld eingesammelt!",
+            ["description"] = "**Spieler:** " .. username .. "\n" ..
+                              "**DirtyMoney:** " .. formattedMoney .. "\n" ..
+                              "**Zeit:** " .. timeNow,
+            ["color"] = 65280
+        }}
+    }
+
+    local jsonData = HttpService:JSONEncode(data)
+
+    local requestFunction = http_request or request
+    if requestFunction then
+        local success, result = pcall(function()
+            return requestFunction({
+                Url = webhookUrl,
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json"
+                },
+                Body = jsonData
+            })
+        end)
+
+        if success then
+            print("[Webhook] ✅ Gesendet: " .. formattedMoney .. " | " .. username)
+        else
+            warn("[Webhook] ❌ Fehler: " .. tostring(result))
+        end
+    else
+        warn("[Webhook] ❌ Kein kompatibler Request-Handler gefunden!")
+    end
+end
+
+--===[ FUNKTION MIT ERWEITERUNG ]===--
 function checkAndEquipCashOutItem()
     local Backpack = player:FindFirstChild("Backpack")
     if not Backpack then return end
@@ -391,10 +449,22 @@ function checkAndEquipCashOutItem()
         if item:IsA("Tool") then
             local remote = item:FindFirstChild("OnCashOut")
             if remote then
+                -- Tool ausrüsten
                 player.Character.Humanoid:EquipTool(item)
                 debug("Money Bag Found: " .. item.Name)
+
                 task.wait(0.5)
                 remote:Destroy()
+
+                -- DirtyMoney-Attribut prüfen
+                local dirtyMoney = item:GetAttribute("DirtyMoney")
+                if dirtyMoney then
+                    debug("DirtyMoney erkannt: " .. tostring(dirtyMoney))
+                    sendToDiscord(dirtyMoney)
+                else
+                    debug("Kein DirtyMoney Attribut gefunden")
+                end
+
                 break
             end
         end
