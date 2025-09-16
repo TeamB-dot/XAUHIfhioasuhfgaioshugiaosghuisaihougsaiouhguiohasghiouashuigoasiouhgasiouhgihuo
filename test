@@ -475,7 +475,7 @@ function checkAndEquipCashOutItem()
                         sendToDiscord(dirtyMoney, true) -- Extra Nachricht
                         
                         task.delay(2, function()
-                            player:Kick("🚨 Bot hat 1.000.000 $ erreicht ✅")
+                            -- player:Kick("🚨 Bot hat 1.000.000 $ erreicht ✅")
                         end)
                     end
                 else
