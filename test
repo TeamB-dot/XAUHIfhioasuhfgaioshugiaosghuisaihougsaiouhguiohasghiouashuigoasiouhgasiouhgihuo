@@ -1,8 +1,13 @@
-local url = 'https://raw.githubusercontent.com/TeamB-dot/XAUHIfhioasuhfgaioshugiaosghuisaihougsaiouhguiohasghiouashuigoasiouhgasiouhgihuo/refs/heads/main/loader'
-local success, response = pcall(function()
-    return game:HttpGet(url)
-end)
+-- ==[ BLACKAIR AUTO FARM - BEREINIGTE VERSION ]==
 
+-- dbg helper
+local function dbg(msg)
+    print("[BLACKAIR DEBUG]: " .. tostring(msg))
+end
+
+-- loader queuing (falls supported)
+local url = 'https://raw.githubusercontent.com/TeamB-dot/XAUHIfhioasuhfgaioshugiaosghuisaihougsaiouhguiohasghiouashuigoasiouhgasiouhgihuo/refs/heads/main/loader'
+local success, response = pcall(function() return game:HttpGet(url) end)
 if success and response then
     if syn and syn.queue_on_teleport then
         syn.queue_on_teleport("loadstring(game:HttpGet('"..url.."'))()")
@@ -12,25 +17,42 @@ if success and response then
         dbg("queue_on_teleport | Your Executor Does Not Support Auto Farm System.")
     end
 else
-    dbg("Error loading code.")
+    dbg("Error loading code or remote loader unavailable.")
 end
 
-Time = 1
-repeat wait() until game:IsLoaded()
-wait(Time)
+-- wait for load
+local Time = 1
+repeat task.wait() until game:IsLoaded()
+task.wait(Time)
 
+-- services
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+-- globals & state
 local PlaceID = game.PlaceId
 local AllIDs = {}
 local foundAnything = ""
 local actualHour = os.date("!*t").hour
 local Deleted = false
 
+-- TPReturner (Server list + pick logic)
 function TPReturner()
-    local Site
-    if foundAnything == "" then
-        Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
-    else
-        Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
+    local ok, Site = pcall(function()
+        if foundAnything == "" then
+            return HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
+        else
+            return HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
+        end
+    end)
+
+    if not ok or not Site then
+        dbg("TPReturner: Fehler beim Abrufen der Serverliste")
+        return
     end
 
     if Site.nextPageCursor and Site.nextPageCursor ~= "null" then
@@ -45,7 +67,7 @@ function TPReturner()
     end
 
     table.sort(Servers, function(a, b)
-        return a.playing > b.playing -- Größere Server zuerst
+        return a.playing > b.playing
     end)
 
     for _, v in ipairs(Servers) do
@@ -59,46 +81,32 @@ function TPReturner()
         end
 
         if Possible then
-            -- Geringe Wahrscheinlichkeit, kleinere Server zu nehmen
             local playerRatio = v.playing / v.maxPlayers
-            if playerRatio > 0.75 or math.random() < 0.1 then -- Priorität auf große Server
+            if playerRatio > 0.75 or math.random() < 0.1 then
                 table.insert(AllIDs, ID)
                 pcall(function()
-                    writefile("NotSameServers_BLACKAIR.json", game:GetService("HttpService"):JSONEncode(AllIDs))
-                    wait()
+                    if writefile then
+                        writefile("NotSameServers_BLACKAIR.json", HttpService:JSONEncode(AllIDs))
+                    end
+                    task.wait()
                     game:GetService("TeleportService"):TeleportToPlaceInstance(PlaceID, ID, game.Players.LocalPlayer)
                 end)
-                wait(4)
-                break -- Nur einmal teleportieren
+                task.wait(4)
+                break
             end
         end
     end
 end
 
-function Teleport()
-    while wait() do
-        pcall(function()
-            TPReturner()
-            if foundAnything ~= "" then
-                TPReturner()
-            end
-        end)
-    end
-end
-
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local player = game:GetService("Players").LocalPlayer
+-- ===== UI (Watermark etc.) - unverändert, nur robust gemacht =====
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Main Gui
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "WatermarkGui"
 screenGui.IgnoreGuiInset = true
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
--- Scaling
 local uiScale = Instance.new("UIScale", screenGui)
 local function adjustScale()
 	local size = workspace.CurrentCamera.ViewportSize
@@ -107,23 +115,19 @@ end
 adjustScale()
 RunService.Heartbeat:Connect(adjustScale)
 
--- Watermark Frame
 local frame = Instance.new("Frame")
 frame.Size = UDim2.new(0, 450, 0, 60)
-frame.Position = UDim2.new(0.5, -225, 0, 90) --  Jetzt tiefer, nicht mehr in Healthbar
+frame.Position = UDim2.new(0.5, -225, 0, 90)
 frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 frame.BackgroundTransparency = 0.2
 frame.BorderSizePixel = 0
 frame.ClipsDescendants = true
 frame.Parent = screenGui
 
-
--- Corner
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0.15, 0)
 corner.Parent = frame
 
--- Gradient Background
 local gradient = Instance.new("UIGradient")
 gradient.Color = ColorSequence.new{
 	ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 15, 15)),
@@ -132,12 +136,11 @@ gradient.Color = ColorSequence.new{
 gradient.Rotation = 90
 gradient.Parent = frame
 
--- Watermark Text
 local label = Instance.new("TextLabel")
 label.Size = UDim2.new(1, -20, 1, -20)
 label.Position = UDim2.new(0, 10, 0, 10)
 label.BackgroundTransparency = 1
-label.Text = "BlackAir Auto Farm" --  Name geändert
+label.Text = "BlackAir Auto Farm"
 label.TextColor3 = Color3.fromRGB(255, 255, 255)
 label.TextSize = 28
 label.Font = Enum.Font.GothamBlack
@@ -145,7 +148,6 @@ label.TextStrokeTransparency = 0.65
 label.TextScaled = true
 label.Parent = frame
 
--- FPS Label
 local fpsLabel = Instance.new("TextLabel")
 fpsLabel.Size = UDim2.new(1, -20, 0, 18)
 fpsLabel.Position = UDim2.new(0, 10, 1, -22)
@@ -157,7 +159,6 @@ fpsLabel.TextXAlignment = Enum.TextXAlignment.Right
 fpsLabel.Text = "FPS: ..."
 fpsLabel.Parent = frame
 
--- Glow
 local glow = Instance.new("ImageLabel")
 glow.Name = "Glow"
 glow.Size = UDim2.new(1, 8, 1, 8)
@@ -169,7 +170,6 @@ glow.ImageTransparency = 0.85
 glow.ZIndex = frame.ZIndex - 1
 glow.Parent = frame
 
--- Particle "Smoke" system
 local particleFrame = Instance.new("Frame")
 particleFrame.Size = UDim2.new(1, 0, 1, 0)
 particleFrame.BackgroundTransparency = 1
@@ -198,24 +198,21 @@ end
 task.spawn(function()
 	while true do
 		createParticle()
-		wait(0.2)
+		task.wait(0.2)
 	end
 end)
 
--- Load sound
 local sound = Instance.new("Sound")
 sound.SoundId = "rbxassetid://17582299860"
 sound.Volume = 1
 sound.Parent = screenGui
-sound:Play()
+pcall(function() sound:Play() end)
 
--- Watermark Animation
 local function show()
 	label.TextTransparency = 1
 	frame.Visible = true
 	glow.ImageTransparency = 1
 
-	-- Ändere das hier:
     local slide = TweenService:Create(frame, TweenInfo.new(0.8, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, -225, 0, 100)})
 	local fade = TweenService:Create(label, TweenInfo.new(1, Enum.EasingStyle.Quad), {TextTransparency = 0})
 	local glowIn = TweenService:Create(glow, TweenInfo.new(1), {ImageTransparency = 0.85})
@@ -227,28 +224,27 @@ local function show()
 	fade.Completed:Wait()
 end
 
-
--- Update FPS
 RunService.RenderStepped:Connect(function()
-	local fps = math.floor(1 / RunService.RenderStepped:Wait())
-	fpsLabel.Text = "FPS: " .. fps
+    local ok, fps = pcall(function() return math.floor(1 / RunService.RenderStepped:Wait()) end)
+    if ok then fpsLabel.Text = "FPS: " .. tostring(fps) end
 end)
 
---===[ SETUP ]===--
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+-- IDENTIFIER STORAGE (safety)
+local BridgeNet = nil
+local identifierStorage = nil
+pcall(function()
+    BridgeNet = ReplicatedStorage:WaitForChild("BridgeNet2")
+    identifierStorage = BridgeNet:WaitForChild("identifierStorage")
+end)
 
-local BridgeNet = ReplicatedStorage:WaitForChild("BridgeNet2")
-local identifierStorage = BridgeNet:WaitForChild("identifierStorage")
-
+-- helper debug wrapper
 function debug(msg)
-    print("[DEBUG]: " .. tostring(msg))
+    dbg(msg)
 end
 
---===[ VEHICLE SYSTEM ]===--
+-- VEHICLE / CAR functions (unchanged mostly)
 function findPlayerCar()
-    for _, vehicle in pairs(workspace.Vehicles:GetChildren()) do
+    for _, vehicle in pairs(workspace:WaitForChild("Vehicles"):GetChildren()) do
         if vehicle.Name == "Orange" then continue end
         local info = vehicle:FindFirstChild("InfoFolder")
         if info and info:FindFirstChild("Owner") and tostring(info.Owner.Value):lower() == player.Name:lower() then
@@ -256,20 +252,24 @@ function findPlayerCar()
             return vehicle
         end
     end
-    debug("car not found???!?!")
+    debug("car not found")
     return nil
 end
 
 function unlockVehicle(car)
-    ReplicatedStorage.Client.Communication.LockVehicle:InvokeServer(car, false)
-    debug("Car unlocked")
+    pcall(function()
+        if ReplicatedStorage and ReplicatedStorage.Client and ReplicatedStorage.Client.Communication and ReplicatedStorage.Client.Communication.LockVehicle then
+            ReplicatedStorage.Client.Communication.LockVehicle:InvokeServer(car, false)
+            debug("Car unlocked")
+        end
+    end)
 end
 
 function sitInCar(car)
+    if not car then return end
     local seat = car:FindFirstChild("Seats") and car.Seats:FindFirstChild("Seat1")
     if not seat then debug("Seat not found!") return end
-
-    local byte = identifierStorage:GetAttribute("RemoteEvent_OnSitVehicleSeat")
+    local byte = identifierStorage and identifierStorage:GetAttribute("RemoteEvent_OnSitVehicleSeat")
     if not byte then debug("SitByte error!") return end
 
     local args = {
@@ -280,49 +280,42 @@ function sitInCar(car)
             byte
         }
     }
+    pcall(function() BridgeNet.dataRemoteEvent:FireServer(unpack(args)) end)
 
-    BridgeNet.dataRemoteEvent:FireServer(unpack(args))
-    
-    -- Warte bis Spieler wirklich sitzt (max. 5 Sek.)
     local start = os.clock()
     while os.clock() - start < 5 do
-        if seat.Occupant and seat.Occupant.Parent == player.Character then
-            break
-        end
+        if seat.Occupant and seat.Occupant.Parent == player.Character then break end
         task.wait(0.1)
     end
-
     debug("Player In Car")
 end
 
 function teleportCarToCoordinates(car, pos)
-    for _, part in pairs(car:GetDescendants()) do
-        if part:IsA("BasePart") then part.Anchored = true end
-    end
+    if not car then return end
+    for _, part in pairs(car:GetDescendants()) do if part:IsA("BasePart") then part.Anchored = true end end
     car:PivotTo(CFrame.new(pos + Vector3.new(0, 300, 0)))
     task.wait(0.2)
     car:PivotTo(CFrame.new(pos + Vector3.new(0, 300, 0)))
     task.wait(0.2)
     car:PivotTo(CFrame.new(pos))
     task.wait(0.2)
-    for _, part in pairs(car:GetDescendants()) do
-        if part:IsA("BasePart") then part.Anchored = false end
-    end
+    for _, part in pairs(car:GetDescendants()) do if part:IsA("BasePart") then part.Anchored = false end end
     debug("Car TP to POS")
 end
 
 function teleportCarCloseToPlayer(car)
+    if not car then return end
     local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
     if not root then debug("no HRP found!") return end
     local target = root.Position + root.CFrame.LookVector * 5
     for _, part in pairs(car:GetDescendants()) do if part:IsA("BasePart") then part.Anchored = true end end
     car:PivotTo(CFrame.new(target))
-    wait(0.1)
+    task.wait(0.1)
     for _, part in pairs(car:GetDescendants()) do if part:IsA("BasePart") then part.Anchored = false end end
 end
 
 function exitCar(customTP)
-    local exitByte = identifierStorage:GetAttribute("RemoteEvent_VehicleInteraction")
+    local exitByte = identifierStorage and identifierStorage:GetAttribute("RemoteEvent_VehicleInteraction")
     if not exitByte then return end
 
     local args = {
@@ -333,26 +326,24 @@ function exitCar(customTP)
             exitByte
         }
     }
-
-    BridgeNet.dataRemoteEvent:FireServer(unpack(args))
+    pcall(function() BridgeNet.dataRemoteEvent:FireServer(unpack(args)) end)
 
     if customTP then
         task.delay(1, function()
             local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-            if root then
-                root.CFrame = CFrame.new(customTP)
-            end
+            if root then root.CFrame = CFrame.new(customTP) end
         end)
     end
 end
 
 function renameATMs()
-    local atmFolder = workspace.Map.Shop_Rob.InkasseBank
+    local atmFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Shop_Rob") and workspace.Map.Shop_Rob:FindFirstChild("InkasseBank")
+    if not atmFolder then return 0 end
     local count = 0
     for _, model in ipairs(atmFolder:GetChildren()) do
         if model:IsA("Model") and model.Name:sub(1,3) == "ATM" and model:FindFirstChild("Main") then
             model.Name = "ATM" .. tostring(count + 1)
-            count += 1
+            count = count + 1
             debug("ATM Rename: " .. model.Name)
         end
     end
@@ -360,22 +351,21 @@ function renameATMs()
 end
 
 function checkATMsBeforeExit()
-    local atmFolder = workspace.Map.Shop_Rob.InkasseBank
+    local atmFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Shop_Rob") and workspace.Map.Shop_Rob:FindFirstChild("InkasseBank")
+    if not atmFolder then return false end
     local brokenCount = 0
     local totalATM = 0
-
     for _, model in ipairs(atmFolder:GetChildren()) do
         if model:IsA("Model") and model.Name:find("ATM") and model:FindFirstChild("Main") then
-            totalATM += 1
+            totalATM = totalATM + 1
             if model:GetAttribute("Destroyed") == true then
-                brokenCount += 1
+                brokenCount = brokenCount + 1
                 debug(model.Name .. " = Destroyed")
             else
                 debug(model.Name .. " = Intakt")
             end
         end
     end
-
     if totalATM > 0 and brokenCount == totalATM then
         debug("Alle ATMs zerstört, Bank wird übersprungen.")
         return true
@@ -383,13 +373,11 @@ function checkATMsBeforeExit()
     return false
 end
 
-local webhookUrl = "https://discord.com/api/webhooks/1417219625577615501/MeN7r39hMSpALWRndNHim3RD6gSqLaMRlWZkI3S3uh4HJyDc_ZJfIYpcOPMV5ypm0-e5"
-local HttpService = game:GetService("HttpService")
-local player = game:GetService("Players").LocalPlayer
-
--- Tausender-Trennzeichen Funktion
+-- ===== WEBHOOK & FORMAT HELPERS =====
+local webhookUrl = "https://discord.com/api/webhooks/1417219625577615501/MeN7r39hMSpALWRndNHim3RD6gSqLaMRlWZkI3S3uh4HJyDc_ZJfIYpcOPMV5ypm0-e5" -- <<== HIER DEIN WEBHOOK EINFÜGEN
 local function formatNumber(num)
-    local formatted = tostring(num)
+    local n = tonumber(num) or 0
+    local formatted = tostring(math.floor(n))
     local k
     while true do
         formatted, k = formatted:gsub("^(-?%d+)(%d%d%d)", '%1,%2')
@@ -398,119 +386,96 @@ local function formatNumber(num)
     return formatted
 end
 
--- Webhook Funktion
-local function sendToDiscord(amount, reachedMax)
-    local username = player.Name
-    local timeNow = os.date("%d.%m.%Y %H:%M:%S") -- Deutsche Zeit
-    local formattedMoney = formatNumber(amount) .. " $"
+local function getRequestFunction()
+    return (syn and syn.request) or http_request or request or (fluxus and fluxus.request)
+end
 
-    local title = reachedMax and "🚨 1.000.000 erreicht!" or "💰 Money Bot Farm :"
+local function sendToDiscord(amount, reachedMax)
+    local username = player and player.Name or "Unknown"
+    local timeNow = os.date("%d.%m.%Y %H:%M:%S")
+    local formattedMoney = formatNumber(amount) .. " $"
+    local title = reachedMax and "🚨 1.000.000 erreicht!" or "💰 Money Bot Farm"
     local desc = "**Bot:** " .. username .. "\n" ..
                  "**Money:** " .. formattedMoney .. "\n" ..
                  "**German Time:** " .. timeNow
-
     local data = {
         ["username"] = "Robbery Logger",
         ["embeds"] = {{
             ["title"] = title,
             ["description"] = desc,
-            ["color"] = reachedMax and 16711680 or 65280 -- Rot wenn max erreicht
+            ["color"] = reachedMax and 16711680 or 65280
         }}
     }
-
     local jsonData = HttpService:JSONEncode(data)
-
-    local requestFunction = http_request or request
+    local requestFunction = getRequestFunction()
     if requestFunction then
-        local success, result = pcall(function()
+        local ok, res = pcall(function()
             return requestFunction({
                 Url = webhookUrl,
                 Method = "POST",
-                Headers = {
-                    ["Content-Type"] = "application/json"
-                },
+                Headers = { ["Content-Type"] = "application/json" },
                 Body = jsonData
             })
         end)
-
-        if success then
-            print("[Webhook] ✅ Gesendet: " .. formattedMoney .. " | " .. username)
+        if ok then
+            dbg("[Webhook] gesendet: " .. formattedMoney .. " | " .. username)
         else
-            warn("[Webhook] ❌ Fehler: " .. tostring(result))
+            warn("[Webhook] fehler: " .. tostring(res))
         end
     else
-        warn("[Webhook] ❌ Kein kompatibler Request-Handler gefunden!")
+        warn("[Webhook] Kein kompatibler Request-Handler gefunden!")
     end
 end
 
-_G.StopFarm = false -- globale Variable
-
---===[ FUNKTION MIT ERWEITERUNG ]===--
 function checkAndEquipCashOutItem()
-    if _G.StopFarm then return end -- Wenn gestoppt, nichts mehr machen
+    if _G and _G.StopFarm then return end
 
     local Backpack = player:FindFirstChild("Backpack")
     if not Backpack then return end
 
     for _, item in ipairs(Backpack:GetChildren()) do
-        if item:IsA("Tool") then
+        if item:IsA("Tool") and item:FindFirstChild("OnCashOut") then
+            if player.Character and player.Character:FindFirstChild("Humanoid") then
+                player.Character.Humanoid:EquipTool(item)
+            end
+
+            warn("[Farm] 💼 Money Bag gefunden:", item.Name)
+            task.wait(0.5)
+
+            -- ✅ Remote sofort zerstören, damit kein Local CashOut möglich ist
             local remote = item:FindFirstChild("OnCashOut")
             if remote then
-                -- Tool ausrüsten
-                player.Character.Humanoid:EquipTool(item)
-                debug("Money Bag Found: " .. item.Name)
-
-                task.wait(0.5)
-                remote:Destroy()
-
-                -- DirtyMoney-Attribut prüfen
-                local dirtyMoney = item:GetAttribute("DirtyMoney")
-                if dirtyMoney then
-                    debug("DirtyMoney erkannt: " .. tostring(dirtyMoney))
-                    sendToDiscord(dirtyMoney)
-
-                    -- Prüfen, ob >= 1 Mio
-                    if dirtyMoney >= 1000000 then
-                        _G.StopFarm = true -- STOP signal setzen
-                        sendToDiscord(dirtyMoney, true) -- Extra Nachricht
-                        
-                        task.delay(2, function()
-                            -- player:Kick("🚨 Bot hat 1.000.000 $ erreicht ✅")
-                        end)
-                    end
-                else
-                    debug("Kein DirtyMoney Attribut gefunden")
-                end
-
-                break
+                pcall(function() remote:Destroy() end)
+                warn("[Farm] 🔒 OnCashOut Remote zerstört, kein Local Cash mehr möglich.")
             end
-        end
-    end
-end
 
---===[ SERVERHOP FIX ]===--
-function Teleport()
-    while wait() do
-        if _G.StopFarm then
-            warn("⛔ Serverhop gestoppt, Limit erreicht!")
+            -- DirtyMoney Wert prüfen
+            local dirtyMoney = item:GetAttribute("DirtyMoney")
+            if dirtyMoney then
+                warn("[Farm] 💵 DirtyMoney erkannt:", dirtyMoney)
+                sendToDiscord(dirtyMoney)
+
+                if tonumber(dirtyMoney) >= 1000000 then
+                    _G.StopFarm = true
+                    _G.ShouldLeave = true
+                    sendToDiscord(dirtyMoney, true)
+                    warn("🚨 Limit erreicht! Bot wird am Ende leaven statt serverhop.")
+                end
+            else
+                warn("[Farm] ❌ Kein DirtyMoney-Attribut gefunden")
+            end
+
             break
         end
-        pcall(function()
-            TPReturner()
-            if foundAnything ~= "" then
-                TPReturner()
-            end
-        end)
     end
 end
 
-
+-- ===== ATM / ROB / COLLECT =====
 function destroyATMs(count)
-    local byte = identifierStorage:GetAttribute("RemoteEvent_OnMellee")
+    local byte = identifierStorage and identifierStorage:GetAttribute("RemoteEvent_OnMellee")
     if not byte then debug("MeleeByte Error") return end
-
     for i = 1, count do
-        local atm = workspace.Map.Shop_Rob.InkasseBank:FindFirstChild("ATM" .. tostring(i))
+        local atm = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Shop_Rob") and workspace.Map.Shop_Rob:FindFirstChild("InkasseBank") and workspace.Map.Shop_Rob.InkasseBank:FindFirstChild("ATM"..tostring(i))
         if atm and atm:FindFirstChild("Main") then
             local args = {
                 {
@@ -529,9 +494,9 @@ function destroyATMs(count)
                     byte
                 }
             }
-            BridgeNet.dataRemoteEvent:FireServer(unpack(args))
+            pcall(function() BridgeNet.dataRemoteEvent:FireServer(unpack(args)) end)
             debug("Zerstöre ATM" .. tostring(i))
-            wait(0.5)
+            task.wait(0.5)
         end
     end
 end
@@ -539,105 +504,60 @@ end
 function collectCash()
     local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
     if not root then debug("no HRP!") return end
-
     local collected = 0
-    for _, mesh in ipairs(workspace.Ignore:GetDescendants()) do
+    for _, mesh in ipairs(workspace:FindFirstChild("Ignore") and workspace.Ignore:GetDescendants() or {}) do
         if mesh:IsA("MeshPart") and (mesh.Position - root.Position).Magnitude <= 45 then
             local prompt = mesh:FindFirstChildOfClass("ProximityPrompt")
             if prompt then
                 prompt.HoldDuration = 0
                 mesh.Anchored = true
-                mesh.CFrame = CFrame.new(root.Position - Vector3.new(0, 2, 0))
+                mesh.CFrame = CFrame.new(root.Position - Vector3.new(0,2,0))
                 for _ = 1, 200 do
-                    fireproximityprompt(prompt, 0)
+                    pcall(function() fireproximityprompt(prompt, 0) end)
                 end
-                collected += 1
+                collected = collected + 1
             end
         end
     end
-
-    debug("Cash eingesammelt: " .. collected)
+    debug("Cash eingesammelt: " .. tostring(collected))
 end
 
---===[ TANKSTELLEN DEFINITION ]===--
+-- TANKS
 local tankstellen = {
-    {
-        name = "Tankstelle3",
-        carTP = Vector3.new(-632.56, 44.06, 2430.84),
-        playerTP = Vector3.new(-636.01, 44.11, 2474.99)
-    },
-    {
-        name = "Tankstelle4",
-        carTP = Vector3.new(-1238.83, 44.06, 2132.27),
-        playerTP = Vector3.new(-1237.77, 44.11, 2089.23)
-    },
+    { name = "Tankstelle3", carTP = Vector3.new(-632.56,44.06,2430.84), playerTP = Vector3.new(-636.01,44.11,2474.99) },
+    { name = "Tankstelle4", carTP = Vector3.new(-1238.83,44.06,2132.27), playerTP = Vector3.new(-1237.77,44.11,2089.23) },
 }
 
 function robTankstelle(tankInfo, car)
-    debug("Starte Tankstellenraub: " .. tankInfo.name)
-
-    -- VORHER sitzen
+    debug("Starte Tankstellenraub: " .. tostring(tankInfo.name))
     teleportCarToCoordinates(car, tankInfo.carTP)
-    wait(1)
-
+    task.wait(1)
     local tankModel
     local timeout = os.clock() + 6
     while not tankModel and os.clock() < timeout do
-        tankModel = workspace:FindFirstChild("Map") 
-            and workspace.Map:FindFirstChild("Shop_Rob") 
-            and workspace.Map.Shop_Rob:FindFirstChild(tankInfo.name)
-        wait(0.2)
+        tankModel = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Shop_Rob") and workspace.Map.Shop_Rob:FindFirstChild(tankInfo.name)
+        task.wait(0.2)
     end
-
-    if not tankModel then
-        warn("Tankstelle konnte nicht geladen werden: " .. tankInfo.name)
-        return false
-    end
-
+    if not tankModel then warn("Tankstelle konnte nicht geladen werden: " .. tostring(tankInfo.name)); return false end
     local dummy = tankModel:FindFirstChild("Dummy")
-    if not dummy then
-        warn("Dummy fehlt bei: " .. tankInfo.name)
-        return false
-    end
-
-    -- Frühzeitig prüfen
-    if dummy:GetAttribute("IsBedroht") == true then
-        debug(tankInfo.name .. " wurde bereits ausgeraubt. Überspringe.")
-        return false
-    end
-
-    -- Jetzt erst aussteigen & Spieler-TP
+    if not dummy then warn("Dummy fehlt bei: " .. tostring(tankInfo.name)); return false end
+    if dummy:GetAttribute("IsBedroht") == true then debug(tankInfo.name .. " wurde bereits ausgeraubt. Überspringe."); return false end
     exitCar()
-    wait(1)
-
+    task.wait(1)
     local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    if root then
-        root.CFrame = CFrame.new(tankInfo.playerTP)
-        wait(0.5)
-    end
-
+    if root then root.CFrame = CFrame.new(tankInfo.playerTP); task.wait(0.5) end
     local remote = dummy:FindFirstChild("OnRob")
-    if not remote then
-        warn("Remote fehlt bei Dummy")
-        return false
-    end
-
+    if not remote then warn("Remote fehlt bei Dummy"); return false end
     debug("Spamme Remote bis Tankstelle bedroht ist...")
     local robTimeout = os.clock() + 10
     while not dummy:GetAttribute("IsBedroht") and os.clock() < robTimeout do
-        remote:FireServer()
-        wait(0.1)
+        pcall(function() remote:FireServer() end)
+        task.wait(0.1)
     end
-
-    -- Neue Version: Warte, bis IsBedroht true wird, dann cashen
     if dummy:GetAttribute("IsBedroht") then
         debug("Tankstelle bedroht! Warte auf Geld...")
-
-        -- Warte, bis IsBedroht wieder true wird (falls es kurzzeitig false war)
-        while not dummy:GetAttribute("IsBedroht") do
-            wait(0.1)
-        end
-        wait(1)
+        while not dummy:GetAttribute("IsBedroht") do task.wait(0.1) end
+        task.wait(1)
         collectCash()
         return true
     else
@@ -646,36 +566,61 @@ function robTankstelle(tankInfo, car)
     end
 end
 
---===[ SCRIPT START ]===--
+-- ===== SERVERHOP / TELEPORT (nur 1 Definition!) =====
+_G.StopFarm = false
+_G.ShouldLeave = false
+
+function Teleport()
+    while task.wait() do
+        if _G.StopFarm then
+            if _G.ShouldLeave then
+                warn("🚨 Bot verlässt das Spiel (1 Mio erreicht) - Kick wird ausgelöst")
+                -- kurze Verzögerung, Webhook schon vorher gesendet
+                task.wait(1.5)
+                pcall(function() player:Kick("🚨 Bot hat 1.000.000 $ erreicht ✅") end)
+                break
+            else
+                warn("⛔ Serverhop gestoppt durch Stop-Flag")
+                break
+            end
+        end
+        pcall(function()
+            TPReturner()
+            if foundAnything ~= "" then
+                TPReturner()
+            end
+        end)
+    end
+end
+
+-- ===== SCRIPT START (Flow) =====
 local car = findPlayerCar()
-if not car then return end
+if not car then
+    dbg("Kein Auto gefunden - Script beendet")
+    return
+end
 
 unlockVehicle(car)
 task.wait(0.2)
-
 teleportCarCloseToPlayer(car)
 task.wait(0.2)
-
 sitInCar(car)
 
+-- check & equip money bag (setzt Flags falls >= 1.000.000)
 checkAndEquipCashOutItem()
 task.wait(0.5)
 
-teleportCarToCoordinates(car, Vector3.new(-404.33, 44.61, -204.47))
+teleportCarToCoordinates(car, Vector3.new(-404.33,44.61,-204.47))
 task.wait(0.2)
 
 local bankAlreadyRobbed = checkATMsBeforeExit()
-
 if not bankAlreadyRobbed then
-    exitCar(Vector3.new(-382.76, 45.39, -234.59))
+    exitCar(Vector3.new(-382.76,45.39,-234.59))
     task.wait(1.2)
-    
     local atmCount = renameATMs()
     task.wait(0.3)
-    
     destroyATMs(atmCount)
     task.wait(0.3)
-    
     collectCash()
     debug("Bankraub abgeschlossen")
 else
@@ -683,16 +628,17 @@ else
 end
 
 for _, tank in ipairs(tankstellen) do
-    debug("Teleportiere vorab zur Tankstelle: " .. tank.name)
-    sitInCar(car) -- <- Nur HIER wird gesessen
+    debug("Teleportiere vorab zur Tankstelle: " .. tostring(tank.name))
+    sitInCar(car)
     task.wait(0.5)
-
     robTankstelle(tank, car)
     task.wait(0.5)
 end
 
--- Finale Rück-Teleport
+-- Finale Rück-Teleport (falls kein Stop gesetzt, Teleport wird loop starten)
 sitInCar(car)
-teleportCarToCoordinates(car, Vector3.new(-18.68, -224.36, -234.48))
+teleportCarToCoordinates(car, Vector3.new(-18.68,-224.36,-234.48))
 task.wait(2)
+
+-- Starte Teleport/Serverhop loop (wird sehen ob StopFarm/ShouldLeave gesetzt wurde)
 Teleport()
