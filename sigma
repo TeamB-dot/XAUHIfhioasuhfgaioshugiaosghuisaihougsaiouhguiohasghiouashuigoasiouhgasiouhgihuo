@@ -1,3 +1,38 @@
+-- ===========================
+-- 🔒 SAFE LOADER (ANTI "HALB GELADENES SCRIPT")
+-- ===========================
+repeat task.wait() until game and game:IsLoaded()
+
+local function waitFor(path, timeout)
+    timeout = timeout or 25
+    local start = tick()
+    local parts = string.split(path, ".")
+    local parent = game
+
+    for _, part in ipairs(parts) do
+        while not parent:FindFirstChild(part) do
+            if tick() - start > timeout then
+                warn("[SAFE-LOADER] TIMEOUT bei:", path)
+                return nil
+            end
+            task.wait(0.1)
+        end
+        parent = parent[part]
+    end
+
+    return parent
+end
+
+waitFor("ReplicatedStorage.BridgeNet2.identifierStorage", 25)
+waitFor("ReplicatedStorage.BridgeNet2.dataRemoteEvent", 25)
+waitFor("ReplicatedStorage.Client.Communication.LockVehicle", 25)
+waitFor("Workspace.Vehicles", 25)
+waitFor("Workspace.Map.Shop_Rob", 25)
+waitFor("Players", 5)
+waitFor("Players.LocalPlayer", 5)
+
+task.wait(2)
+
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
