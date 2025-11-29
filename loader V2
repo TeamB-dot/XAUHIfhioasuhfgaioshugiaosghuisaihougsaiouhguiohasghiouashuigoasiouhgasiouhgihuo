@@ -1,1 +1,41 @@
+local url = "https://raw.githubusercontent.com/TeamB-dot/XAUHIfhioasuhfgaioshugiaosghuisaihougsaiouhguiohasghiouashuigoasiouhgasiouhgihuo/refs/heads/main/loader"
 
+-- ===== Stabiler Auto-Re-Execution Loader =====
+
+local function waitForGame()
+    repeat task.wait() until game:IsLoaded()
+    repeat task.wait() until game.Players.LocalPlayer
+    repeat task.wait() until game.Players.LocalPlayer.Character
+    repeat task.wait() until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    repeat task.wait() until game:GetService("ReplicatedStorage")
+end
+
+local function waitForExecutor()
+    repeat task.wait() until (getgenv and (readfile or writefile or getgc))
+end
+
+local function waitForBridgeNet()
+    local rs = game:GetService("ReplicatedStorage")
+    repeat task.wait() until rs:FindFirstChild("BridgeNet2")
+    repeat task.wait() until rs.BridgeNet2:FindFirstChild("identifierStorage")
+end
+
+local function stableLoad()
+    waitForGame()
+    waitForExecutor()
+    waitForBridgeNet()
+
+    -- erst dann das eigentliche Script laden
+    loadstring(game:HttpGet(url))()
+end
+
+-- ===== queue_on_teleport Fix =====
+local teleportCode = "loadstring(game:HttpGet('"..url.."'))()"
+
+if syn and syn.queue_on_teleport then
+    syn.queue_on_teleport(teleportCode)
+elseif queue_on_teleport then
+    queue_on_teleport(teleportCode)
+end
+
+stableLoad()
