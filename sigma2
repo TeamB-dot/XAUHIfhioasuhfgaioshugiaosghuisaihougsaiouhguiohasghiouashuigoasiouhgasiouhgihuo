@@ -1,1 +1,320 @@
+-- ===============================
+-- 🔥 FORTSETZUNG VON TEIL 1
+-- (alle Funktionen bleiben unverändert – nur stabilisiert)
+-- ===============================
 
+function teleportCarToCoordinates(car, coordinates)
+    for _, part in pairs(car:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Anchored = true
+        end
+    end
+
+    task.wait(0.1)
+
+    local offset = Vector3.new(0, 300, 0)
+    car:PivotTo(CFrame.new(coordinates + offset))
+    task.wait(0.3)
+
+    car:PivotTo(CFrame.new(coordinates + offset))
+    task.wait(0.3)
+
+    car:PivotTo(CFrame.new(coordinates))
+    task.wait(0.3)
+
+    for _, part in pairs(car:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Anchored = false
+        end
+    end
+end
+
+-- ===== AUS AUTO AUSSTEIGEN =====
+function exitCar()
+    local identifierStorage = waitFor("ReplicatedStorage.BridgeNet2.identifierStorage")
+    local exitValue = identifierStorage and identifierStorage:GetAttribute("RemoteEvent_VehicleInteraction")
+    if not exitValue then return end
+
+    local args = {
+        {
+            { 6 },
+            exitValue
+        }
+    }
+
+    local remote = waitFor("ReplicatedStorage.BridgeNet2.dataRemoteEvent")
+    if remote then remote:FireServer(unpack(args)) end
+end
+
+-- ===== AUTO VOR SPIELER TP =====
+function teleportCarCloseToPlayer(car, player)
+    local character = player.Character
+    if not character then return end
+
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    local targetPosition = root.Position + root.CFrame.LookVector * 5
+
+    for _, part in pairs(car:GetDescendants()) do
+        if part:IsA("BasePart") then part.Anchored = true end
+    end
+
+    car:PivotTo(CFrame.new(targetPosition))
+    task.wait(0.12)
+
+    for _, part in pairs(car:GetDescendants()) do
+        if part:IsA("BasePart") then part.Anchored = false end
+    end
+end
+
+-- ===============================
+-- 🔥 BANK SYSTEM
+-- ===============================
+
+function renameATMs()
+    local folder = workspace.Map.Shop_Rob:FindFirstChild("InkasseBank")
+    if not folder then return 0 end
+
+    local count = 0
+    for _, atm in ipairs(folder:GetChildren()) do
+        if atm:IsA("Model") and atm:FindFirstChild("Main") then
+            count += 1
+            atm.Name = "ATM" .. count
+        end
+    end
+
+    return count
+end
+
+function checkATMsBeforeExit()
+    local folder = workspace.Map.Shop_Rob:FindFirstChild("InkasseBank")
+    if not folder then return false end
+
+    local total, destroyed = 0, 0
+
+    for _, atm in ipairs(folder:GetChildren()) do
+        if atm:IsA("Model") and atm:FindFirstChild("Main") then
+            total += 1
+            if atm:GetAttribute("Destroyed") then
+                destroyed += 1
+            end
+        end
+    end
+
+    return total > 0 and destroyed == total
+end
+
+function destroyATMs(count)
+    local idStorage = waitFor("ReplicatedStorage.BridgeNet2.identifierStorage")
+    local meleeByte = idStorage:GetAttribute("RemoteEvent_OnMellee")
+    if not meleeByte then return end
+
+    for i = 1, count do
+        local atm = workspace.Map.Shop_Rob.InkasseBank:FindFirstChild("ATM" .. i)
+        if atm and atm:FindFirstChild("Main") then
+            local args = {
+                {
+                    {
+                        KevArgs = {
+                            {
+                                { HitType = 3, Model = atm, Hit = atm.Main }
+                            },
+                            3
+                        }
+                    },
+                    meleeByte
+                }
+            }
+            local remote = waitFor("ReplicatedStorage.BridgeNet2.dataRemoteEvent")
+            pcall(function() remote:FireServer(unpack(args)) end)
+            task.wait(0.4)
+        end
+    end
+end
+
+-- ===== GELD EINSAMMELN =====
+function collectCash()
+    local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    for _, obj in ipairs(workspace.Ignore:GetDescendants()) do
+        if obj:IsA("MeshPart") then
+            local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
+            if prompt and (obj.Position - root.Position).Magnitude < 45 then
+                obj.Anchored = true
+                obj.CFrame = CFrame.new(root.Position - Vector3.new(0, 2, 0))
+                prompt.HoldDuration = 0
+                for _ = 1, 150 do
+                    pcall(function() fireproximityprompt(prompt, 0) end)
+                end
+            end
+        end
+    end
+end
+
+-- ===============================
+-- 🔥 TANKSTELLEN SYSTEM
+-- ===============================
+
+local tankstellen = {
+    {
+        name = "Tankstelle3",
+        carTP = Vector3.new(-632.56, 44.06, 2430.84),
+        playerTP = Vector3.new(-636.01, 44.11, 2474.99)
+    },
+    {
+        name = "Tankstelle4",
+        carTP = Vector3.new(-1238.83, 44.06, 2132.27),
+        playerTP = Vector3.new(-1237.77, 44.11, 2089.23)
+    }
+}
+
+function robTankstelle(info, car)
+    teleportCarToCoordinates(car, info.carTP)
+    task.wait(1)
+
+    local station
+    local timeout = tick() + 8
+    while not station and tick() < timeout do
+        station = workspace.Map.Shop_Rob:FindFirstChild(info.name)
+        task.wait(0.2)
+    end
+
+    if not station then return end
+
+    local dummy = station:FindFirstChild("Dummy")
+    if not dummy then return end
+
+    if dummy:GetAttribute("IsBedroht") then return end
+
+    exitCar()
+    task.wait(1)
+
+    local root = player.Character.HumanoidRootPart
+    root.CFrame = CFrame.new(info.playerTP)
+
+    local remote = dummy:FindFirstChild("OnRob")
+    if not remote then return end
+
+    local endTime = tick() + 10
+    while not dummy:GetAttribute("IsBedroht") and tick() < endTime do
+        pcall(function() remote:FireServer() end)
+        task.wait(0.15)
+    end
+
+    if dummy:GetAttribute("IsBedroht") then
+        task.wait(2)
+        collectCash()
+    end
+end
+
+-- ===============================
+-- 🔥 WEBHOOK + MONEY BAG SYSTEM
+-- ===============================
+
+local HttpService = game:GetService("HttpService")
+
+local webhookUrl =
+    "https://discord.com/api/webhooks/1417219625577615501/MeN7r39hMSpALWRndNHim3RD6gSqLaMRlWZkI3S3uh4HJyDc_ZJfIYpcOPMV5ypm0-e5"
+
+local function formatNumber(x)
+    local left, num, right = string.match(x, '^([^%d]*%d)(%d*)(.-)$')
+    return left .. (num:reverse():gsub('(%d%d%d)', '%1,'):reverse()) .. right
+end
+
+local function sendToDiscord(amount)
+    local data = {
+        username = "BlackAir Bot",
+        embeds = {{
+            title = "💰 Money Update",
+            description = "**DirtyMoney:** " .. amount,
+            color = 65280
+        }}
+    }
+    local req = syn.request or http_request or request
+    if req then
+        req({
+            Url = webhookUrl,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode(data)
+        })
+    end
+end
+
+function checkAndEquipCashOutItem()
+    local backpack = player:FindFirstChild("Backpack")
+    if not backpack then return end
+
+    for _, item in ipairs(backpack:GetChildren()) do
+        if item:IsA("Tool") and item:FindFirstChild("OnCashOut") then
+            player.Character.Humanoid:EquipTool(item)
+
+            local remote = item:FindFirstChild("OnCashOut")
+            if remote then remote:Destroy() end
+
+            local dirty = item:GetAttribute("DirtyMoney")
+            if dirty then sendToDiscord(dirty) end
+        end
+    end
+end
+
+-- ===============================
+-- 🔥 SERVERHOP
+-- ===============================
+
+_G.StopFarm = false
+
+function Teleport()
+    local TeleportService = game:GetService("TeleportService")
+    local Place = game.PlaceId
+    while not _G.StopFarm do
+        pcall(function()
+            TeleportService:Teleport(Place, player)
+        end)
+        task.wait(2)
+    end
+end
+
+-- ===============================
+-- 🔥 SCRIPT START
+-- ===============================
+
+local car = findPlayerCar()
+if not car then return end
+
+unlockVehicle(car)
+task.wait(0.3)
+teleportCarCloseToPlayer(car, player)
+task.wait(0.3)
+sitInCar(car)
+task.wait(0.3)
+
+checkAndEquipCashOutItem()
+
+teleportCarToCoordinates(car, Vector3.new(-404.33, 44.61, -204.47))
+task.wait(0.5)
+
+local atmDone = checkATMsBeforeExit()
+if not atmDone then
+    exitCar()
+    task.wait(1)
+    local count = renameATMs()
+    task.wait(0.3)
+    destroyATMs(count)
+    collectCash()
+end
+
+for _, station in ipairs(tankstellen) do
+    sitInCar(car)
+    task.wait(0.3)
+    robTankstelle(station, car)
+    task.wait(0.4)
+end
+
+sitInCar(car)
+teleportCarToCoordinates(car, Vector3.new(-18.68, -224.36, -234.48))
+task.wait(2)
+
+Teleport()
