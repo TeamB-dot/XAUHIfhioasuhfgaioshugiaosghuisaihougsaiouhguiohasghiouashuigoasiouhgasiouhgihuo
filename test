@@ -374,7 +374,7 @@ function checkATMsBeforeExit()
 end
 
 -- ===== WEBHOOK & FORMAT HELPERS =====
-local webhookUrl = "https://discord.com/api/webhooks/1417219625577615501/MeN7r39hMSpALWRndNHim3RD6gSqLaMRlWZkI3S3uh4HJyDc_ZJfIYpcOPMV5ypm0-e5" -- <<== HIER DEIN WEBHOOK EINFÜGEN
+local webhookUrl = "https://discord.com/api/webhooks/1444423159112536178/TSNo6E52x1DXpm9xtse9PPLbG43NKL8pY-IZhHVcCl0G0iD0Kb8Dq7Bjoh9ddr1D2O9G" -- <<== HIER DEIN WEBHOOK EINFÜGEN
 local function formatNumber(num)
     local n = tonumber(num) or 0
     local formatted = tostring(math.floor(n))
