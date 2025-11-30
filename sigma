@@ -259,6 +259,6 @@ local Paragraph = Tab:CreateParagraph({
 local Button = Tab:CreateButton({
    Name = "Start",
    Callback = function()
-loadstring(game:HttpGet('https://raw.githubusercontent.com/TeamB-dot/XAUHIfhioasuhfgaioshugiaosghuisaihougsaiouhguiohasghiouashuigoasiouhgasiouhgihuo/refs/heads/main/loader%20V2'))()
+loadstring(game:HttpGet('https://raw.githubusercontent.com/TeamB-dot/XAUHIfhioasuhfgaioshugiaosghuisaihougsaiouhguiohasghiouashuigoasiouhgasiouhgihuo/refs/heads/main/loader'))()
    end,
 })
