@@ -1,0 +1,186 @@
+-- ==[ BLACKAIR AUTO FARM - CONTAINER VERSION ]==
+
+-- dbg helper
+local function dbg(msg)
+    print("[BLACKAIR DEBUG]: " .. tostring(msg))
+end
+
+-- wait for load
+repeat task.wait() until game:IsLoaded()
+task.wait(1)
+
+-- Services
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+
+-- Character
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+
+-- Container folder
+local folder = workspace:WaitForChild("Map")
+                    :WaitForChild("Deko")
+                    :WaitForChild("Muelleimer")
+                    :WaitForChild("Folder")
+
+-- Globals
+local currentIndex = 0
+local PlaceID = game.PlaceId
+local AllIDs = {}
+local foundAnything = ""
+
+-- GUI (bereinigt, wie vorher)
+local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "WatermarkGui"
+screenGui.IgnoreGuiInset = true
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+local uiScale = Instance.new("UIScale", screenGui)
+local function adjustScale()
+	local size = workspace.CurrentCamera.ViewportSize
+	uiScale.Scale = size.X < 1000 and 0.75 or 1
+end
+adjustScale()
+RunService.Heartbeat:Connect(adjustScale)
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 450, 0, 60)
+frame.Position = UDim2.new(0.5, -225, 0, 90)
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+frame.BackgroundTransparency = 0.2
+frame.BorderSizePixel = 0
+frame.ClipsDescendants = true
+frame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0.15, 0)
+corner.Parent = frame
+
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 15, 15)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
+}
+gradient.Rotation = 90
+gradient.Parent = frame
+
+local label = Instance.new("TextLabel")
+label.Size = UDim2.new(1, -20, 1, -20)
+label.Position = UDim2.new(0, 10, 0, 10)
+label.BackgroundTransparency = 1
+label.Text = "BlackAir Auto Farm"
+label.TextColor3 = Color3.fromRGB(255, 255, 255)
+label.TextSize = 28
+label.Font = Enum.Font.GothamBlack
+label.TextStrokeTransparency = 0.65
+label.TextScaled = true
+label.Parent = frame
+
+local fpsLabel = Instance.new("TextLabel")
+fpsLabel.Size = UDim2.new(1, -20, 0, 18)
+fpsLabel.Position = UDim2.new(0, 10, 1, -22)
+fpsLabel.BackgroundTransparency = 1
+fpsLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+fpsLabel.TextSize = 14
+fpsLabel.Font = Enum.Font.Gotham
+fpsLabel.TextXAlignment = Enum.TextXAlignment.Right
+fpsLabel.Text = "FPS: ..."
+fpsLabel.Parent = frame
+
+RunService.RenderStepped:Connect(function()
+    local ok, fps = pcall(function() return math.floor(1 / RunService.RenderStepped:Wait()) end)
+    if ok then fpsLabel.Text = "FPS: " .. tostring(fps) end
+end)
+
+-- ===== Container Farming =====
+local function safeTeleport(position)
+    if Character and Character:FindFirstChild("HumanoidRootPart") then
+        Character.HumanoidRootPart.CFrame = CFrame.new(position + Vector3.new(0, 3, 0))
+        task.wait(0.25)
+    end
+end
+
+local function getNextContainer()
+    for _, obj in ipairs(folder:GetChildren()) do
+        if obj:IsA("Model") and obj.Name:sub(1,14) == "ContainerTonneS" then
+            return obj
+        end
+    end
+    return nil
+end
+
+local function processNextContainer()
+    local container = getNextContainer()
+    if not container then return false end
+
+    currentIndex += 1
+    container.Name = "ContainerTonneS" .. currentIndex
+
+    local tpPos = container.PrimaryPart and container.PrimaryPart.Position
+                 or container:FindFirstChildWhichIsA("BasePart") and container:FindFirstChildWhichIsA("BasePart").Position
+
+    if tpPos then
+        safeTeleport(tpPos)
+        local giveLoot = container:FindFirstChild("GiveLoot")
+        if giveLoot and giveLoot:IsA("RemoteEvent") then
+            giveLoot:FireServer()
+            dbg("[Loot] Geholt von: " .. container.Name)
+            -- Webhook senden (optional, wenn GiveLoot Geld gibt)
+            -- sendToDiscord(lootAmount)
+        end
+    end
+    return true
+end
+
+-- ===== Serverhop =====
+function TPReturner()
+    local ok, Site = pcall(function()
+        if foundAnything == "" then
+            return HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
+        else
+            return HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
+        end
+    end)
+    if not ok or not Site then dbg("Serverhop Fehler"); return end
+    if Site.nextPageCursor and Site.nextPageCursor ~= "null" then foundAnything = Site.nextPageCursor end
+    local Servers = {}
+    for _, v in pairs(Site.data) do
+        if tonumber(v.maxPlayers) > tonumber(v.playing) then table.insert(Servers, v) end
+    end
+    table.sort(Servers, function(a,b) return a.playing > b.playing end)
+    for _, v in ipairs(Servers) do
+        local ID = tostring(v.id)
+        local Possible = true
+        for _, Existing in pairs(AllIDs) do
+            if ID == tostring(Existing) then Possible = false; break end
+        end
+        if Possible then
+            table.insert(AllIDs, ID)
+            pcall(function()
+                if writefile then writefile("NotSameServers_BLACKAIR.json", HttpService:JSONEncode(AllIDs)) end
+                task.wait()
+                TeleportService:TeleportToPlaceInstance(PlaceID, ID, LocalPlayer)
+            end)
+            task.wait(4)
+            break
+        end
+    end
+end
+
+-- ===== Main Loop =====
+while true do
+    local hasMore = processNextContainer()
+    if not hasMore then
+        dbg("Alle Container bearbeitet, nächster Server...")
+        TPReturner()
+        break
+    end
+    task.wait(0.05)
+end
