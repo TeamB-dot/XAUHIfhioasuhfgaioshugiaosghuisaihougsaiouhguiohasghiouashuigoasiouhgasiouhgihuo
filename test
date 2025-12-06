@@ -6,7 +6,7 @@ local function dbg(msg)
 end
 
 -- loader queuing (falls supported)
-local url = 'https://raw.githubusercontent.com/TeamB-dot/XAUHIfhioasuhfgaioshugiaosghuisaihougsaiouhguiohasghiouashuigoasiouhgasiouhgihuo/refs/heads/main/loader%20V2'
+local url = 'https://raw.githubusercontent.com/TeamB-dot/XAUHIfhioasuhfgaioshugiaosghuisaihougsaiouhguiohasghiouashuigoasiouhgasiouhgihuo/refs/heads/main/loader'
 local success, response = pcall(function() return game:HttpGet(url) end)
 if success and response then
     if syn and syn.queue_on_teleport then
