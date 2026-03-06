@@ -1,1 +1,631 @@
 
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+
+-- ===== UI (Watermark etc.) =====
+local playerGui = player:WaitForChild("PlayerGui")
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "WatermarkGui"
+screenGui.IgnoreGuiInset = true
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+local uiScale = Instance.new("UIScale", screenGui)
+local function adjustScale()
+	local size = workspace.CurrentCamera.ViewportSize
+	uiScale.Scale = size.X < 1000 and 0.75 or 1
+end
+adjustScale()
+RunService.Heartbeat:Connect(adjustScale)
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 450, 0, 60)
+frame.Position = UDim2.new(0.5, -225, 0, 90)
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+frame.BackgroundTransparency = 0.2
+frame.BorderSizePixel = 0
+frame.ClipsDescendants = true
+frame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0.15, 0)
+corner.Parent = frame
+
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 15, 15)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
+}
+gradient.Rotation = 90
+gradient.Parent = frame
+
+local label = Instance.new("TextLabel")
+label.Size = UDim2.new(1, -20, 1, -20)
+label.Position = UDim2.new(0, 10, 0, 10)
+label.BackgroundTransparency = 1
+label.Text = "BlackAir Auto Farm"
+label.TextColor3 = Color3.fromRGB(255, 255, 255)
+label.TextSize = 28
+label.Font = Enum.Font.GothamBlack
+label.TextStrokeTransparency = 0.65
+label.TextScaled = true
+label.Parent = frame
+
+local fpsLabel = Instance.new("TextLabel")
+fpsLabel.Size = UDim2.new(1, -20, 0, 18)
+fpsLabel.Position = UDim2.new(0, 10, 1, -22)
+fpsLabel.BackgroundTransparency = 1
+fpsLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+fpsLabel.TextSize = 14
+fpsLabel.Font = Enum.Font.Gotham
+fpsLabel.TextXAlignment = Enum.TextXAlignment.Right
+fpsLabel.Text = "FPS: ..."
+fpsLabel.Parent = frame
+
+local glow = Instance.new("ImageLabel")
+glow.Name = "Glow"
+glow.Size = UDim2.new(1, 8, 1, 8)
+glow.Position = UDim2.new(0, -4, 0, -4)
+glow.BackgroundTransparency = 1
+glow.Image = "rbxassetid://5028857084"
+glow.ImageColor3 = Color3.fromRGB(0, 200, 255)
+glow.ImageTransparency = 0.85
+glow.ZIndex = frame.ZIndex - 1
+glow.Parent = frame
+
+local particleFrame = Instance.new("Frame")
+particleFrame.Size = UDim2.new(1, 0, 1, 0)
+particleFrame.BackgroundTransparency = 1
+particleFrame.ClipsDescendants = true
+particleFrame.Parent = frame
+
+local function createParticle()
+	local p = Instance.new("Frame")
+	p.Size = UDim2.new(0, math.random(6, 12), 0, math.random(6, 12))
+	p.Position = UDim2.new(math.random(), 0, 1, 0)
+	p.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	p.BackgroundTransparency = 0.85
+	p.ZIndex = 5
+	p.Parent = particleFrame
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(1, 0)
+	corner.Parent = p
+
+	local targetPos = UDim2.new(p.Position.X.Scale, 0, -0.2, 0)
+	local t = TweenService:Create(p, TweenInfo.new(math.random(3, 6), Enum.EasingStyle.Linear), {Position = targetPos})
+	t:Play()
+	t.Completed:Connect(function() p:Destroy() end)
+end
+
+task.spawn(function()
+	while true do
+		createParticle()
+		task.wait(0.2)
+	end
+end)
+
+local sound = Instance.new("Sound")
+sound.SoundId = "rbxassetid://17582299860"
+sound.Volume = 1
+sound.Parent = screenGui
+pcall(function() sound:Play() end)
+
+local function show()
+	label.TextTransparency = 1
+	frame.Visible = true
+	glow.ImageTransparency = 1
+
+    local slide = TweenService:Create(frame, TweenInfo.new(0.8, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, -225, 0, 100)})
+	local fade = TweenService:Create(label, TweenInfo.new(1, Enum.EasingStyle.Quad), {TextTransparency = 0})
+	local glowIn = TweenService:Create(glow, TweenInfo.new(1), {ImageTransparency = 0.85})
+
+	slide:Play()
+	fade:Play()
+	glowIn:Play()
+
+	fade.Completed:Wait()
+end
+
+
+RunService.RenderStepped:Connect(function()
+    local ok, fps = pcall(function() return math.floor(1 / RunService.RenderStepped:Wait()) end)
+    if ok then fpsLabel.Text = "FPS: " .. tostring(fps) end
+end)
+
+-- IDENTIFIER STORAGE
+local BridgeNet = nil
+local identifierStorage = nil
+pcall(function()
+    BridgeNet = ReplicatedStorage:WaitForChild("BridgeNet2")
+    identifierStorage = BridgeNet:WaitForChild("identifierStorage")
+end)
+
+local function dbg(msg)
+    print("[BLACKAIR DEBUG]: " .. tostring(msg))
+end
+function debug(msg)
+    dbg(msg)
+end
+
+-- ===== ANTI COP / ANTI DIE SYSTEM =====
+_G.InDanger = false
+
+local function stopEverything()
+    _G.StopFarm = true
+    _G.InDanger = true
+    warn("🚨 STOP - Teleportiere zur Safe Zone!")
+    local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if root then
+        root.CFrame = CFrame.new(Vector3.new(-18.68, -224.36, -234.48))
+    end
+end
+
+-- Anti Cop (Ragdoll Detector)
+local function setupAntiCop()
+    local function watchCharacter(char)
+        if not char then return end
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if not humanoid then return end
+
+        -- Attribute watcher
+        humanoid.AttributeChanged:Connect(function(attr)
+            if attr == "Ragdoll" and humanoid:GetAttribute("Ragdoll") == true then
+                warn("🚔 RAGDOLL erkannt - Stoppe Farm!")
+                stopEverything()
+            end
+        end)
+
+        -- auch workspace.Characters checken
+        local charFolder = workspace:FindFirstChild("Characters")
+        if charFolder then
+            local playerChar = charFolder:FindFirstChild(player.Name)
+            if playerChar then
+                local hum = playerChar:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    hum.AttributeChanged:Connect(function(attr)
+                        if attr == "Ragdoll" and hum:GetAttribute("Ragdoll") == true then
+                            warn("🚔 RAGDOLL (workspace.Characters) erkannt - Stoppe Farm!")
+                            stopEverything()
+                        end
+                    end)
+                end
+            end
+        end
+    end
+
+    watchCharacter(player.Character)
+    player.CharacterAdded:Connect(watchCharacter)
+end
+
+-- Anti Die (Health Monitor)
+local function setupAntiDie()
+    local function watchHealth(char)
+        if not char then return end
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if not humanoid then return end
+
+        RunService.Heartbeat:Connect(function()
+            if _G.StopFarm then return end
+            if humanoid.Health > 0 and humanoid.Health <= 20 then
+                warn("❤️ Health kritisch (" .. math.floor(humanoid.Health) .. ") - Stoppe Farm!")
+                stopEverything()
+            end
+        end)
+    end
+
+    watchHealth(player.Character)
+    player.CharacterAdded:Connect(watchHealth)
+end
+
+setupAntiCop()
+setupAntiDie()
+
+-- ===== PLAYER TELEPORT HELPER =====
+function teleportPlayer(pos)
+    local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if root then
+root.CFrame = CFrame.new(pos)
+        debug("Player TP to: " .. tostring(pos))
+    else
+        debug("teleportPlayer: kein HumanoidRootPart!")
+    end
+end
+
+-- ===== ATM HELPERS =====
+local function getATMFolder()
+    local funcs = workspace:FindFirstChild("Functions")
+    if not funcs then return nil end
+    local shopRob = funcs:FindFirstChild("Shop_Rob")
+    if not shopRob then return nil end
+    return shopRob:FindFirstChild("InkasseBank")
+end
+
+function countATMs()
+    local atmFolder = getATMFolder()
+    if not atmFolder then return 0 end
+    local count = 0
+    for _, model in ipairs(atmFolder:GetChildren()) do
+        if model:IsA("Model") and model.Name == "ATM" then
+            count = count + 1
+        end
+    end
+    debug("ATM Count: " .. tostring(count))
+    return count
+end
+
+function checkATMsBeforeExit()
+    local atmFolder = getATMFolder()
+    if not atmFolder then return false end
+    local brokenCount = 0
+    local totalATM = 0
+    for _, model in ipairs(atmFolder:GetChildren()) do
+        if model:IsA("Model") and model.Name == "ATM" then
+            totalATM = totalATM + 1
+            if model:GetAttribute("Destroyed") == true then
+                brokenCount = brokenCount + 1
+                debug("ATM = Destroyed")
+            else
+                debug("ATM = Intakt")
+            end
+        end
+    end
+    if totalATM > 0 and brokenCount == totalATM then
+        debug("Alle ATMs zerstört, Bank wird übersprungen.")
+        return true
+    end
+    return false
+end
+
+-- ===== ATM DESTROY =====
+function destroyATMs()
+    local atmFolder = getATMFolder()
+    if not atmFolder then debug("ATM Folder nicht gefunden!") return end
+
+    local damageRemote = nil
+    local backpack = player:FindFirstChild("Backpack")
+    if backpack then
+        for _, item in ipairs(backpack:GetChildren()) do
+            local remote = item:FindFirstChild("OnDamageEvent")
+            if remote then
+                damageRemote = remote
+                debug("OnDamageEvent gefunden in Backpack: " .. item.Name)
+                break
+            end
+        end
+    end
+    if not damageRemote and player.Character then
+        for _, item in ipairs(player.Character:GetChildren()) do
+            local remote = item:FindFirstChild("OnDamageEvent")
+            if remote then
+                damageRemote = remote
+                debug("OnDamageEvent gefunden in Character: " .. item.Name)
+                break
+            end
+        end
+    end
+    if not damageRemote then
+        debug("OnDamageEvent Remote nicht gefunden!")
+        return
+    end
+
+    local atms = {}
+    for _, model in ipairs(atmFolder:GetChildren()) do
+        if model:IsA("Model") and model.Name == "ATM" then
+            table.insert(atms, model)
+        end
+    end
+    debug("Zerstöre " .. tostring(#atms) .. " ATMs...")
+
+    for i, atm in ipairs(atms) do
+        local hitPart = atm:FindFirstChild("Detail2")
+        if not hitPart then
+            for _, p in ipairs(atm:GetDescendants()) do
+                if p:IsA("BasePart") then hitPart = p break end
+            end
+        end
+        if not hitPart then debug("Kein HitPart bei ATM " .. i) continue end
+
+        -- Feuern bis Destroyed=true oder timeout
+        local timeout = os.clock() + 10
+        while not atm:GetAttribute("Destroyed") and os.clock() < timeout do
+            for _ = 1, 3 do
+                pcall(function()
+                    damageRemote:FireServer(unpack({
+                        {
+                            {
+                                HitType = 3,
+                                Model = atm,
+                                Hit = hitPart
+                            }
+                        },
+                        3
+                    }))
+                end)
+                task.wait(0.1)
+            end
+        end
+
+        if atm:GetAttribute("Destroyed") then
+            debug("ATM " .. i .. " erfolgreich zerstört")
+        else
+            debug("ATM " .. i .. " timeout - weiter")
+        end
+    end
+end
+
+function collectCash()
+    local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not root then debug("no HRP!") return end
+    local ig = workspace:FindFirstChild("Ignore")
+    if not ig then debug("Ignore folder nicht gefunden!") return end
+
+    debug("Warte auf Geld spawn...")
+    task.wait(2)
+
+    local collected = 0
+
+    for runde = 1, 3 do
+        for _, b in ipairs(ig:GetChildren()) do
+            if b:IsA("BasePart") then
+                local p = b:FindFirstChildOfClass("ProximityPrompt")
+                if p then
+                    -- Spieler zum Geld teleportieren
+                    root.CFrame = CFrame.new(b.Position + Vector3.new(0, 3, 0))
+
+                    p.HoldDuration = 0
+                    p.MaxActivationDistance = 999
+                    p.RequiresLineOfSight = false
+
+                    pcall(function() fireproximityprompt(p) end)
+                    task.wait(0.05)
+                    pcall(function() fireproximityprompt(p) end)
+                    task.wait(0.05)
+                    pcall(function() fireproximityprompt(p) end)
+
+                    collected = collected + 1
+                end
+            end
+        end
+        task.wait(0.5)
+    end
+
+    debug("Cash eingesammelt: " .. tostring(collected))
+end
+
+-- ===== WEBHOOK & FORMAT HELPERS =====
+local webhookUrl = "https://discord.com/api/webhooks/1444423159112536178/TSNo6E52x1DXpm9xtse9PPLbG43NKL8pY-IZhHVcCl0G0iD0Kb8Dq7Bjoh9ddr1D2O9G"
+local function formatNumber(num)
+    local n = tonumber(num) or 0
+    local formatted = tostring(math.floor(n))
+    local k
+    while true do
+        formatted, k = formatted:gsub("^(-?%d+)(%d%d%d)", '%1,%2')
+        if k == 0 then break end
+    end
+    return formatted
+end
+
+local function getRequestFunction()
+    return (syn and syn.request) or http_request or request or (fluxus and fluxus.request)
+end
+
+local function sendToDiscord(amount, reachedMax)
+    local username = player and player.Name or "Unknown"
+    local timeNow = os.date("%d.%m.%Y %H:%M:%S")
+    local formattedMoney = formatNumber(amount) .. " $"
+    local title = reachedMax and "🚨 1.000.000 erreicht!" or "💰 Money Bot Farm"
+    local desc = "**Bot:** " .. username .. "\n" ..
+                 "**Money:** " .. formattedMoney .. "\n" ..
+                 "**German Time:** " .. timeNow
+    local data = {
+        ["username"] = "Robbery Logger",
+        ["embeds"] = {{
+            ["title"] = title,
+            ["description"] = desc,
+            ["color"] = reachedMax and 16711680 or 65280
+        }}
+    }
+    local jsonData = HttpService:JSONEncode(data)
+    local requestFunction = getRequestFunction()
+    if requestFunction then
+        local ok, res = pcall(function()
+            return requestFunction({
+                Url = webhookUrl,
+                Method = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body = jsonData
+            })
+        end)
+        if ok then
+            dbg("[Webhook] gesendet: " .. formattedMoney .. " | " .. username)
+        else
+            warn("[Webhook] fehler: " .. tostring(res))
+        end
+    else
+        warn("[Webhook] Kein kompatibler Request-Handler gefunden!")
+    end
+end
+
+-- ===== DEBUG: ATM FOLDER INHALT AUSGEBEN =====
+local function debugATMFolder()
+    local funcs = workspace:FindFirstChild("Functions")
+    if not funcs then warn("Functions NICHT gefunden!") return end
+    debug("Functions gefunden")
+    
+    local shopRob = funcs:FindFirstChild("Shop_Rob")
+    if not shopRob then warn("Shop_Rob NICHT gefunden in Functions!") return end
+    debug("Shop_Rob gefunden")
+    
+    local inkasse = shopRob:FindFirstChild("InkasseBank")
+    if not inkasse then warn("InkasseBank NICHT gefunden in Shop_Rob!") return end
+    debug("InkasseBank gefunden")
+    
+    debug("InkasseBank Kinder:")
+    for _, child in ipairs(inkasse:GetChildren()) do
+        debug("  -> " .. child.Name .. " (" .. child.ClassName .. ") | tonumber=" .. tostring(tonumber(child.Name)))
+    end
+end
+
+debugATMFolder()
+
+function checkAndEquipCashOutItem()
+    if _G and _G.StopFarm then return end
+
+    local Backpack = player:FindFirstChild("Backpack")
+    if not Backpack then return end
+
+    for _, item in ipairs(Backpack:GetChildren()) do
+        if item:IsA("Tool") and item:FindFirstChild("OnCashOut") then
+            if player.Character and player.Character:FindFirstChild("Humanoid") then
+                player.Character.Humanoid:EquipTool(item)
+            end
+
+            warn("[Farm] 💼 Money Bag gefunden:", item.Name)
+            task.wait(0.5)
+
+            local remote = item:FindFirstChild("OnCashOut")
+            if remote then
+                pcall(function() remote:Destroy() end)
+                warn("[Farm] 🔒 OnCashOut Remote zerstört.")
+            end
+
+            local dirtyMoney = item:GetAttribute("DirtyMoney")
+            if dirtyMoney then
+                warn("[Farm] 💵 DirtyMoney erkannt:", dirtyMoney)
+                sendToDiscord(dirtyMoney)
+
+                if tonumber(dirtyMoney) >= 1000000 then
+                    _G.StopFarm = true
+                    _G.ShouldLeave = true
+                    sendToDiscord(dirtyMoney, true)
+                    warn("🚨 Limit erreicht! Bot wird am Ende leaven.")
+                end
+            else
+                warn("[Farm] ❌ Kein DirtyMoney-Attribut gefunden")
+            end
+
+            break
+        end
+    end
+end
+
+-- ===== SHOPS / TANKSTELLEN =====
+local shops = {
+    { n = "Toolshop",   p = CFrame.new(785.41626, 71.6619, 366.15323) },
+    { n = "DonerStore", p = CFrame.new(-809.265, 44.615, 368.733) },
+    { n = "Urbanshop",  p = CFrame.new(-75.073, 44.237, -860.452) },
+    { n = "Skinshop",   p = CFrame.new(-83.237, 44.212, -766.494) },
+    { n = "Merchshop",  p = CFrame.new(-285.872, 44.214, -35.899) },
+    { n = "Pharmacy",   p = CFrame.new(540.901, 44.764, -1767.784) },
+    { n = "Tankstelle1",p = CFrame.new(462.917, 44.408, -2281.542) },
+    { n = "Tankstelle3",p = CFrame.new(-636.223, 44.111, 2463.188) },
+    { n = "Tankstelle4",p = CFrame.new(-1237.463, 44.123, 2099.965) },
+    { n = "Tankstelle2",p = CFrame.new(-1320.519, 44.320, -1171.144) },
+}
+
+function robShop(shopInfo)
+    debug("Starte Raub: " .. tostring(shopInfo.n))
+
+    -- Spieler teleportieren
+    local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not root then debug("Kein HRP!") return false end
+    root.CFrame = shopInfo.p
+    task.wait(1)
+
+    -- Dummy suchen
+    local dummy
+    local funcs = workspace:FindFirstChild("Functions")
+    if funcs then
+        local shopRob = funcs:FindFirstChild("Shop_Rob")
+        if shopRob then
+            local model = shopRob:FindFirstChild(shopInfo.n)
+            if model then dummy = model:FindFirstChild("Dummy") end
+        end
+    end
+
+    if not dummy then warn("Dummy nicht gefunden: " .. shopInfo.n) return false end
+    if not dummy:GetAttribute("CanRobNPC") then
+        debug(shopInfo.n .. " CanRobNPC=false, überspringe.")
+        return false
+    end
+
+    local remote = dummy:FindFirstChild("OnRob")
+    if not remote then warn("OnRob fehlt bei: " .. shopInfo.n) return false end
+
+    debug("Spamme OnRob bis CanRobNPC false...")
+    local robTimeout = os.clock() + 15
+    while dummy:GetAttribute("CanRobNPC") and os.clock() < robTimeout do
+        pcall(function() remote:FireServer() end)
+        task.wait(1)
+    end
+
+    debug(shopInfo.n .. " fertig, sammle Cash...")
+    task.wait(0.5)
+    collectCash()
+    return true
+end
+
+-- ===== SERVERHOP / TELEPORT =====
+_G.StopFarm = false
+_G.ShouldLeave = false
+
+function Teleport()
+    while task.wait() do
+        if _G.StopFarm then
+            if _G.ShouldLeave then
+                warn("🚨 Bot verlässt das Spiel (1 Mio erreicht)")
+                task.wait(1.5)
+                pcall(function() player:Kick("🚨 Bot hat 1.000.000 $ erreicht ✅") end)
+                break
+            else
+                warn("⛔ Serverhop gestoppt durch Stop-Flag")
+                break
+            end
+        end
+        pcall(function()
+            TPReturner()
+            if foundAnything ~= "" then
+                TPReturner()
+            end
+        end)
+    end
+end
+
+-- ===== SCRIPT START =====
+checkAndEquipCashOutItem()
+task.wait(0.5)
+
+-- Teleportiere Spieler zur Bank
+teleportPlayer(Vector3.new(-382.76,45.39,-234.59))
+task.wait(0.5)
+
+local bankAlreadyRobbed = checkATMsBeforeExit()
+if not bankAlreadyRobbed then
+    local atmCount = countATMs()
+    task.wait(0.3)
+    destroyATMs(atmCount)
+    task.wait(0.3)
+    collectCash()
+    debug("Bankraub abgeschlossen")
+else
+    debug("Bank wird übersprungen (bereits ausgeraubt)")
+end
+
+-- Alle Shops & Tankstellen ausrauben
+for _, shop in ipairs(shops) do
+    debug("Starte Shop: " .. tostring(shop.n))
+    robShop(shop)
+    task.wait(0.5)
+end
+
+teleportPlayer(Vector3.new(-18.68,-224.36,-234.48))
+task.wait(2)
+
+Teleport()
